@@ -36,6 +36,7 @@ describe('routes/apps', function() {
       next();
     });
 
+    this.orgId = shortid.generate();
     this.options = {
       database: {
         createApplication: sinon.spy(function(data, callback) {
@@ -44,19 +45,27 @@ describe('routes/apps', function() {
         updateApplication: sinon.spy(function(data, callback) {
           callback(null, data);
         }),
+        deleteApplication: sinon.spy(function(appId, callback) {
+          callback(null);
+        }),
         getAppName: function(name, callback) {
           callback(null, self.appName);
         },
         getOrgMember: function(orgId, userId, callback) {
           callback(null, {
             userId: userId,
-            orgId: orgId,
+            orgId: self.orgId,
             role: 'admin'
           });
         }
       },
       appLookup: function(query, settings, callback) {
-        callback(null, null);
+        callback(null, {appId: query.id, orgId: self.orgId});
+      },
+      storage: {
+        deleteObjects: sinon.spy(function(bucket, folder, callback) {
+          callback();
+        })
       }
     };
 
@@ -136,4 +145,19 @@ describe('routes/apps', function() {
       })
       .end(done);
   });
+
+  it('deletes application', function(done) {
+    var appId = shortid.generate();
+
+    supertest(this.server)
+      .delete('/' + appId)
+      .expect(204)
+      .expect(function(res) {
+        assert.ok(self.options.database.deleteApplication.calledWith(appId));
+        assert.ok(self.options.storage.deleteObjects.called);
+      })
+      .end(done);
+  });
+
+
 });
