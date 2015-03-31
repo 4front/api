@@ -4,10 +4,10 @@ var shortid = require('shortid');
 var assert = require('assert');
 var sinon = require('sinon');
 var debug = require('debug')('4front-api:test');
-var appIdParam = require('../lib/middleware/appid-param');
+var orgIdParam = require('../lib/middleware/orgid-param');
 var helper = require('./helper');
 
-describe('appIdParam', function() {
+describe('orgIdParam', function() {
   var self;
 
   before(function() {
@@ -21,14 +21,13 @@ describe('appIdParam', function() {
       userId: shortid.generate()
     };
 
-    this.virtualApp = {
-      appId: shortid.generate(),
+    this.organization = {
       orgId: shortid.generate()
     };
 
     this.orgMember = {
       userId: this.user.userId,
-      orgId: this.virtualApp.orgId,
+      orgId: this.organization.orgId,
       role: 'admin'
     };
 
@@ -39,60 +38,58 @@ describe('appIdParam', function() {
     });
 
     this.database = {
+      getOrganization: function(orgId, callback) {
+        callback(null, self.organization);
+      },
       getOrgMember: function(orgId, userId, callback) {
         callback(null, self.orgMember);
       }
     };
 
     // Register middleware for handling the appId parameter
-    this.server.param('appId', appIdParam({
-      appLookup: function(query, settings, callback) {
-        callback(null, self.virtualApp);
-      },
+    this.server.param('orgId', orgIdParam({
       database: self.database
     }));
 
-    this.server.get('/:appId', function(req, res, next) {
-      debug("/" + req.params.appId);
+    this.server.get('/:orgId', function(req, res, next) {
+      debug("/" + req.params.orgId);
       res.json(req.ext);
     });
 
     this.server.use(helper.errorHandler);
   });
 
-  it('sets req.ext when user is member of parent org', function(done) {
+  it('sets req.ext.organization when user is member', function(done) {
     supertest(this.server)
-      .get('/' + this.virtualApp.appId)
+      .get('/' + this.organization.orgId)
       .expect(200)
       .expect(function(res) {
-        debugger;
-        assert.equal(res.body.virtualApp.appId, self.virtualApp.appId);
+        assert.equal(res.body.organization.orgId, self.organization.orgId);
         assert.equal(res.body.orgMember.role, 'admin');
-        assert.equal(res.body.orgId, self.virtualApp.orgId);
+        assert.equal(res.body.orgMember.userId, self.user.userId);
       })
       .end(done);
   });
 
-  it('returns 404 when appId doesnt exist', function(done) {
-    this.virtualApp = null;
+  it('returns 404 when orgId doesnt exist', function(done) {
+    this.organization = null;
 
     supertest(this.server)
       .get('/' + shortid.generate())
       .expect(404)
       .expect(function(res) {
-        assert.equal(res.body.code, "appNotFound");
+        assert.equal(res.body.code, "orgNotFound");
       })
       .end(done);
   });
 
-  it('returns 401 if user is not a member of parent org', function(done) {
+  it('returns 401 if user is not a member of org', function(done) {
     this.orgMember = null;
 
     supertest(this.server)
       .get('/' + shortid.generate())
       .expect(401)
       .expect(function(res) {
-        debugger;
         assert.equal(res.body.code, "userNotOrgMember");
       })
       .end(done);

@@ -4,7 +4,9 @@
   "description": "API interface for 4front",
   "main": "index.js",
   "scripts": {
-    "test": "mocha test"
+    "test": "mocha --reporter spec --bail --check-leaks test/",
+    "test-cov": "istanbul cover node_modules/mocha/bin/_mocha -- --reporter dot --check-leaks test/",
+    "test-travis": "istanbul cover node_modules/mocha/bin/_mocha --report lcovonly -- --reporter spec --check-leaks test/"
   },
   "keywords": [
     "4front",
@@ -12,8 +14,15 @@
     "multi-tenant"
   ],
   "author": "David Von Lehman <https://github.com/dvonlehman>",
-  "license": "Apache-2.0",
+  "licenses": [
+    {
+      "type": "Apache-2.0",
+      "url": "http://www.apache.org/licenses/LICENSE-2.0.html"
+    }
+  ],
+  "homepage": "http://4front.io",
   "devDependencies": {
+    "istanbul": "^0.3.13",
     "mocha": "^2.2.1",
     "sinon": "^1.14.1",
     "supertest": "^0.15.0"
