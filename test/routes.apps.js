@@ -44,7 +44,7 @@ describe('routes/apps', function() {
       }
     };
 
-    // Register middleware for handling the appId parameter
+    // Register apps route middleware
     this.server.use(appsRoute(this.options));
 
     this.server.use(helper.errorHandler);
@@ -77,4 +77,6 @@ describe('routes/apps', function() {
         .end(done);
     });
   });
+
+
 });
