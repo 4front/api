@@ -37,6 +37,8 @@ describe('routes/apps', function() {
     });
 
     this.orgId = shortid.generate();
+    this.appRegistry = [];
+
     this.options = {
       database: {
         createApplication: sinon.spy(function(data, callback) {
@@ -59,8 +61,15 @@ describe('routes/apps', function() {
           });
         }
       },
-      appLookup: function(query, settings, callback) {
-        callback(null, {appId: query.id, orgId: self.orgId});
+      appRegistry: {
+        getById: function(appId, opts, callback) {
+          callback(null, _.find(self.appRegistry, {appId: appId}));
+        },
+        getByName: function(name, opts, callback) {
+          callback(null, _.find(self.appRegistry, {name: name}));
+        },
+        flushApp: sinon.spy(function(app) {
+        })
       },
       storage: {
         deleteObjects: sinon.spy(function(bucket, folder, callback) {
@@ -80,25 +89,16 @@ describe('routes/apps', function() {
 
   describe('check app name existence', function() {
     it('existing app name', function(done) {
-      var appName = "appname";
-      this.options.appLookup = function(query, settings, callback) {
-        callback(null, {
-          appId: shortid.generate(),
-          name: appName
-        });
-      };
+      var appData = {appId: shortid.generate(), name: 'appname'};
+      this.appRegistry.push(appData);
 
       supertest(this.server)
-        .head('/' + appName)
+        .head('/' + appData.name)
         .expect(200)
         .end(done);
     });
 
     it('non existing app name', function(done) {
-      this.options.appLookup = function(query, settings, callback) {
-        callback(null, null);
-      };
-
       supertest(this.server)
         .head('/someappname')
         .expect(404)
@@ -106,8 +106,6 @@ describe('routes/apps', function() {
     });
   });
 
-<<<<<<< HEAD
-=======
   describe('create application', function() {
     var appData = {
       name: 'app-name'
@@ -135,9 +133,7 @@ describe('routes/apps', function() {
       orgId: shortid.generate()
     };
 
-    this.options.appLookup = function(appId, options, callback) {
-      callback(null, appData);
-    };
+    this.appRegistry.push(appData);
 
     supertest(this.server)
       .put('/' + appData.appId)
@@ -151,18 +147,17 @@ describe('routes/apps', function() {
   });
 
   it('deletes application', function(done) {
-    var appId = shortid.generate();
+    var appData = {appId: shortid.generate(), orgId: shortid.generate()};
+    this.appRegistry.push(appData);
 
     supertest(this.server)
-      .delete('/' + appId)
+      .delete('/' + appData.appId)
       .expect(204)
       .expect(function(res) {
-        assert.ok(self.options.database.deleteApplication.calledWith(appId));
+        assert.ok(self.options.database.deleteApplication.calledWith(appData.appId));
         assert.ok(self.options.storage.deleteObjects.called);
+        assert.ok(self.options.appRegistry.flushApp.called);
       })
       .end(done);
   });
-
->>>>>>> 00e01133d461996d6b8aa85536bb9f74302af372
-
 });

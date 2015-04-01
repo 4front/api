@@ -3,6 +3,7 @@ var express = require('express');
 var shortid = require('shortid');
 var assert = require('assert');
 var sinon = require('sinon');
+var _ = require('lodash');
 var debug = require('debug')('4front-api:test');
 var appIdParam = require('../lib/middleware/appid-param');
 var helper = require('./helper');
@@ -38,18 +39,20 @@ describe('appIdParam', function() {
       next();
     });
 
-    this.database = {
-      getOrgMember: function(orgId, userId, callback) {
-        callback(null, self.orgMember);
-      }
-    };
+    this.appRegistry = [this.virtualApp];
 
     // Register middleware for handling the appId parameter
     this.server.param('appId', appIdParam({
-      appLookup: function(query, settings, callback) {
-        callback(null, self.virtualApp);
+      appRegistry: {
+        getById: function(appId, opts, callback) {
+          callback(null, _.find(self.appRegistry, {appId: appId}));
+        }
       },
-      database: self.database
+      database: {
+        getOrgMember: function(orgId, userId, callback) {
+          callback(null, self.orgMember);
+        }
+      }
     }));
 
     this.server.get('/:appId', function(req, res, next) {
@@ -65,7 +68,6 @@ describe('appIdParam', function() {
       .get('/' + this.virtualApp.appId)
       .expect(200)
       .expect(function(res) {
-        debugger;
         assert.equal(res.body.virtualApp.appId, self.virtualApp.appId);
         assert.equal(res.body.orgMember.role, 'admin');
         assert.equal(res.body.orgId, self.virtualApp.orgId);
@@ -74,7 +76,7 @@ describe('appIdParam', function() {
   });
 
   it('returns 404 when appId doesnt exist', function(done) {
-    this.virtualApp = null;
+    this.appRegistry.length = 0;
 
     supertest(this.server)
       .get('/' + shortid.generate())
@@ -89,7 +91,7 @@ describe('appIdParam', function() {
     this.orgMember = null;
 
     supertest(this.server)
-      .get('/' + shortid.generate())
+      .get('/' + this.virtualApp.appId)
       .expect(401)
       .expect(function(res) {
         debugger;
