@@ -22,14 +22,18 @@ describe('appIdParam', function() {
       userId: shortid.generate()
     };
 
+    this.organization = {
+      orgId: shortid.generate()
+    };
+
     this.virtualApp = {
       appId: shortid.generate(),
-      orgId: shortid.generate()
+      orgId: this.organization.orgId
     };
 
     this.orgMember = {
       userId: this.user.userId,
-      orgId: this.virtualApp.orgId,
+      orgId: this.organization.orgId,
       role: 'admin'
     };
 
@@ -41,19 +45,24 @@ describe('appIdParam', function() {
 
     this.appRegistry = [this.virtualApp];
 
-    // Register middleware for handling the appId parameter
-    this.server.param('appId', appIdParam({
+    this.options = {
       appRegistry: {
         getById: function(appId, opts, callback) {
           callback(null, _.find(self.appRegistry, {appId: appId}));
         }
       },
       database: {
-        getOrgMember: function(orgId, userId, callback) {
+        getOrganization: sinon.spy(function(orgId, callback) {
+          callback(null, self.organization);
+        }),
+        getOrgMember: sinon.spy(function(orgId, userId, callback) {
           callback(null, self.orgMember);
-        }
+        })
       }
-    }));
+    };
+
+    // Register middleware for handling the appId parameter
+    this.server.param('appId', appIdParam(this.options));
 
     this.server.get('/:appId', function(req, res, next) {
       debug("/" + req.params.appId);
@@ -70,7 +79,10 @@ describe('appIdParam', function() {
       .expect(function(res) {
         assert.equal(res.body.virtualApp.appId, self.virtualApp.appId);
         assert.equal(res.body.orgMember.role, 'admin');
-        assert.equal(res.body.orgId, self.virtualApp.orgId);
+        assert.equal(res.body.organization.orgId, self.virtualApp.orgId);
+
+        assert.ok(self.options.database.getOrganization.called);
+        assert.ok(self.options.database.getOrgMember.called);
       })
       .end(done);
   });

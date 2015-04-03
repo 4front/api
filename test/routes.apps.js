@@ -22,11 +22,15 @@ describe('routes/apps', function() {
       secretKey: shortid.generate()
     };
 
-    // this.orgMember = {
-    //   userId: self.user.userId,
-    //   orgId: shortid.generate(),
-    //   role: 'contributor'
-    // };
+    this.organization = {
+      orgId: shortid.generate()
+    };
+
+    this.orgMember = {
+      userId: self.user.userId,
+      orgId: this.organization.orgId,
+      role: 'admin'
+    };
 
     this.server.use(function(req, res, next) {
       req.ext = {
@@ -36,7 +40,6 @@ describe('routes/apps', function() {
       next();
     });
 
-    this.orgId = shortid.generate();
     this.appRegistry = [];
 
     this.options = {
@@ -53,12 +56,11 @@ describe('routes/apps', function() {
         getAppName: function(name, callback) {
           callback(null, self.appName);
         },
+        getOrganization: function(orgId, callback) {
+          callback(null, self.organization);
+        },
         getOrgMember: function(orgId, userId, callback) {
-          callback(null, {
-            userId: userId,
-            orgId: self.orgId,
-            role: 'admin'
-          });
+          callback(null, self.orgMember);
         }
       },
       appRegistry: {
