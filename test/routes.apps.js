@@ -53,6 +53,9 @@ describe('routes/apps', function() {
         deleteApplication: sinon.spy(function(appId, callback) {
           callback(null);
         }),
+        updateTrafficRules: sinon.spy(function(appId, environment, rules, callback) {
+          callback(null);
+        }),
         getAppName: function(name, callback) {
           callback(null, self.appName);
         },
@@ -159,6 +162,24 @@ describe('routes/apps', function() {
         assert.ok(self.options.database.deleteApplication.calledWith(appData.appId));
         assert.ok(self.options.storage.deleteObjects.called);
         assert.ok(self.options.appRegistry.flushApp.called);
+      })
+      .end(done);
+  });
+
+  it('updates traffic rules', function(done) {
+    var appData = {appId: shortid.generate(), orgId: shortid.generate()};
+    this.appRegistry.push(appData);
+
+    var environment = 'production';
+    var rules = [{version:'v1', rule:'*'}];
+
+    supertest(this.server)
+      .post('/' + appData.appId + '/traffic-rules/' + environment)
+      .send(rules)
+      .expect(200)
+      .expect(function(res) {
+        assert.deepEqual(res.body, rules);
+        assert.ok(self.options.database.updateTrafficRules.calledWith(appData.appId, environment));
       })
       .end(done);
   });
