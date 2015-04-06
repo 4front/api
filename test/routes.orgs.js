@@ -217,7 +217,8 @@ describe('routes/orgs', function() {
       supertest(this.server)
         .post('/' + self.organization.orgId + '/members')
         .send({userId: shortid.generate(), role: 'welder'})
-        .expect(400, done);
+        .expect(400)
+        .end(done);
     });
   });
 
