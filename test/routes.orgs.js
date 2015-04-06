@@ -2,6 +2,7 @@ var supertest = require('supertest');
 var express = require('express');
 var shortid = require('shortid');
 var assert = require('assert');
+var moment = require('moment');
 var sinon = require('sinon');
 var _ = require('lodash');
 var bodyParser = require('body-parser');
@@ -58,6 +59,9 @@ describe('routes/orgs', function() {
         getOrganization: function(orgId, callback) {
           callback(null, self.organization);
         },
+        updateOrganization: sinon.spy(function(orgData, callback) {
+          callback(null, orgData);
+        }),
         getUserInfo: sinon.spy(function(userIds, callback) {
           callback(null, self.userInfo);
         }),
@@ -75,6 +79,16 @@ describe('routes/orgs', function() {
         }),
         getOrgMember: function(orgId, userId, callback) {
           callback(null, self.orgMember);
+        }
+      },
+      orgPlans: {
+        unlimited: {
+          operationLimit:0
+        },
+        trial: {
+          price: 0,
+          duration: 45,
+          operationLimit:0
         }
       }
     };
@@ -200,7 +214,88 @@ describe('routes/orgs', function() {
     });
 
     it('invalid role', function(done) {
-      
+      supertest(this.server)
+        .post('/' + self.organization.orgId + '/members')
+        .send({userId: shortid.generate(), role: 'welder'})
+        .expect(400, done);
     });
+  });
+
+  describe('create organization', function() {
+    it('valid org', function(done) {
+      supertest(this.server)
+        .post('/')
+        .send({name: 'test org'})
+        .expect(201)
+        .expect(function(res) {
+          assert.ok(self.options.database.createOrganization.called);
+          assert.deepEqual(self.options.database.createOrgMember.getCall(0).args[0], {
+            orgId: res.body.orgId,
+            userId: self.user.userId,
+            role: 'admin'
+          });
+        })
+        .end(done);
+    });
+
+    it('trial plan', function(done) {
+      supertest(this.server)
+        .post('/')
+        .send({name: 'test org', plan: 'trial'})
+        .expect(201)
+        .expect(function(res) {
+          assert.ok(self.options.database.createOrganization.called);
+          assert.isMatch(self.options.database.createOrganization.args[0][0], {
+            trialStart: moment().format('YYYY-MM-DD'),
+            trialEnd: moment().add(45, 'days').format('YYYY-MM-DD'),
+            monthlyRate: 0,
+            activated: false
+          });
+          assert.isMatch(self.options.database.updateUser.args[0][0], {usedTrialOrg: true});
+        })
+        .end(done);
+    });
+
+    it('trial org already used', function(done) {
+      this.user.usedTrialOrg = true;
+      supertest(this.server)
+        .post('/')
+        .send({name: 'test org', plan: 'trial'})
+        .expect(400)
+        .expect(function(res) {
+          assert.equal(res.body.code, 'userAlreadyUsedTrial');
+        })
+        .end(done);
+    });
+
+    it('invalid org name', function(done) {
+      supertest(this.server)
+        .post('/')
+        .send({name: ''})
+        .expect(400)
+        .expect(function(res) {
+          assert.equal(res.body.code, 'invalidOrgName');
+        })
+        .end(done);
+    });
+  });
+
+  it('terminate org', function(done) {
+    this.options.database.deleteOrgMembers = sinon.spy(function(orgId, callback) {
+      callback(null);
+    });
+
+    supertest(this.server)
+      .put('/' + this.organization.orgId + '/terminate')
+      .expect(200)
+      .expect(function(res) {
+        assert.isMatch(self.options.database.updateOrganization.args[0][0], {
+          activated: false,
+          terminated: true,
+          terminatedBy: self.user.userId
+        });
+        assert.ok(self.options.database.deleteOrgMembers.called);
+      })
+      .end(done);
   });
 });
