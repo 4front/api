@@ -6,7 +6,7 @@ module.exports.beforeEach = function() {
   var options = {
     database: {},
     cache: {},
-    storage: {},
+    deployments: {},
     appLookup: {}
   };
 

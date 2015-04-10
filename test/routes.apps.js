@@ -76,8 +76,8 @@ describe('routes/apps', function() {
         flushApp: sinon.spy(function(app) {
         })
       },
-      storage: {
-        deleteObjects: sinon.spy(function(bucket, folder, callback) {
+      deployments: {
+        deleteAllVersions: sinon.spy(function(appId, callback) {
           callback();
         })
       }
@@ -160,7 +160,7 @@ describe('routes/apps', function() {
       .expect(204)
       .expect(function(res) {
         assert.ok(self.options.database.deleteApplication.calledWith(appData.appId));
-        assert.ok(self.options.storage.deleteObjects.called);
+        assert.ok(self.options.deployments.deleteAllVersions.called);
         assert.ok(self.options.appRegistry.flushApp.called);
       })
       .end(done);

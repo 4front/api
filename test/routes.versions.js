@@ -74,8 +74,8 @@ describe('routes/versions', function() {
         flushApp: sinon.spy(function(app) {
         })
       },
-      storage: {
-        deleteObjects: sinon.spy(function(bucket, folder, callback) {
+      deployments: {
+        deleteAllVersions: sinon.spy(function(appId, callback) {
           callback();
         })
       }
