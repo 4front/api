@@ -37,16 +37,8 @@ describe('appIdParam', function() {
       role: 'admin'
     };
 
-    this.server.use(function(req, res, next) {
-      req.ext = {};
-      req.ext.user = self.user;
-      next();
-    });
-
-    this.appRegistry = [this.virtualApp];
-
-    this.options = {
-      appRegistry: {
+    _.extend(this.server.settings, {
+      virtualAppRegistry: {
         getById: function(appId, opts, callback) {
           callback(null, _.find(self.appRegistry, {appId: appId}));
         }
@@ -59,7 +51,17 @@ describe('appIdParam', function() {
           callback(null, self.orgMember);
         })
       }
-    };
+    });
+
+    this.database = this.server.settings.database;
+
+    this.server.use(function(req, res, next) {
+      req.ext = {};
+      req.ext.user = self.user;
+      next();
+    });
+
+    this.appRegistry = [this.virtualApp];
 
     // Register middleware for handling the appId parameter
     this.server.param('appId', appIdParam(this.options));
@@ -81,8 +83,8 @@ describe('appIdParam', function() {
         assert.equal(res.body.orgMember.role, 'admin');
         assert.equal(res.body.organization.orgId, self.virtualApp.orgId);
 
-        assert.ok(self.options.database.getOrganization.called);
-        assert.ok(self.options.database.getOrgMember.called);
+        assert.ok(self.database.getOrganization.called);
+        assert.ok(self.database.getOrgMember.called);
       })
       .end(done);
   });
@@ -106,7 +108,6 @@ describe('appIdParam', function() {
       .get('/' + this.virtualApp.appId)
       .expect(401)
       .expect(function(res) {
-        debugger;
         assert.equal(res.body.code, "userNotOrgMember");
       })
       .end(done);

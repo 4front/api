@@ -16,6 +16,14 @@ describe('orgIdParam', function() {
 
   beforeEach(function() {
     this.server = express();
+    this.server.settings.database = {
+      getOrganization: function(orgId, callback) {
+        callback(null, self.organization);
+      },
+      getOrgMember: function(orgId, userId, callback) {
+        callback(null, self.orgMember);
+      }
+    };
 
     this.user = {
       userId: shortid.generate()
@@ -37,19 +45,8 @@ describe('orgIdParam', function() {
       next();
     });
 
-    this.database = {
-      getOrganization: function(orgId, callback) {
-        callback(null, self.organization);
-      },
-      getOrgMember: function(orgId, userId, callback) {
-        callback(null, self.orgMember);
-      }
-    };
-
     // Register middleware for handling the appId parameter
-    this.server.param('orgId', orgIdParam({
-      database: self.database
-    }));
+    this.server.param('orgId', orgIdParam());
 
     this.server.get('/:orgId', function(req, res, next) {
       debug("/" + req.params.orgId);

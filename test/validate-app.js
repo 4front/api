@@ -25,7 +25,7 @@ describe('validateApp', function() {
       next();
     });
 
-    this.database = {
+    this.server.settings.database = this.database = {
       getAppName: function(name, callback) {
         callback(null, self.appName);
       }
@@ -33,7 +33,7 @@ describe('validateApp', function() {
 
     this.server.use(bodyParser.json());
 
-    this.server.post('/', validateApp({database: this.database}), function(req, res, next) {
+    this.server.post('/', validateApp(), function(req, res, next) {
       res.json(req.ext);
     });
 

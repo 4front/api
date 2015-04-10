@@ -45,51 +45,50 @@ describe('routes/orgs', function() {
       next();
     });
 
-    this.options = {
-      database: {
-        createOrganization: sinon.spy(function(data, callback) {
-          callback(null, data);
-        }),
-        updateOrganization: sinon.spy(function(data, callback) {
-          callback(null, data);
-        }),
-        terminateOrganization: sinon.spy(function(orgId, callback) {
-          callback(null);
-        }),
-        getOrganization: function(orgId, callback) {
-          callback(null, self.organization);
-        },
-        updateOrganization: sinon.spy(function(orgData, callback) {
-          callback(null, orgData);
-        }),
-        getUserInfo: sinon.spy(function(userIds, callback) {
-          callback(null, self.userInfo);
-        }),
-        listOrgMembers: sinon.spy(function(orgId, callback) {
-          callback(null, self.orgMembers);
-        }),
-        createOrgMember: sinon.spy(function(member, callback) {
-          callback(null, member);
-        }),
-        updateUser: sinon.spy(function(user, callback) {
-          callback(null);
-        }),
-        createUser: sinon.spy(function(user, callback) {
-          callback(null, user);
-        }),
-        getOrgMember: function(orgId, userId, callback) {
-          callback(null, self.orgMember);
-        }
+    this.server.settings.database = this.database = {
+      createOrganization: sinon.spy(function(data, callback) {
+        callback(null, data);
+      }),
+      updateOrganization: sinon.spy(function(data, callback) {
+        callback(null, data);
+      }),
+      terminateOrganization: sinon.spy(function(orgId, callback) {
+        callback(null);
+      }),
+      getOrganization: function(orgId, callback) {
+        callback(null, self.organization);
       },
-      orgPlans: {
-        unlimited: {
-          operationLimit:0
-        },
-        trial: {
-          price: 0,
-          duration: 45,
-          operationLimit:0
-        }
+      updateOrganization: sinon.spy(function(orgData, callback) {
+        callback(null, orgData);
+      }),
+      getUserInfo: sinon.spy(function(userIds, callback) {
+        callback(null, self.userInfo);
+      }),
+      listOrgMembers: sinon.spy(function(orgId, callback) {
+        callback(null, self.orgMembers);
+      }),
+      createOrgMember: sinon.spy(function(member, callback) {
+        callback(null, member);
+      }),
+      updateUser: sinon.spy(function(user, callback) {
+        callback(null);
+      }),
+      createUser: sinon.spy(function(user, callback) {
+        callback(null, user);
+      }),
+      getOrgMember: function(orgId, userId, callback) {
+        callback(null, self.orgMember);
+      }
+    };
+
+    this.server.settings.orgPlans = {
+      unlimited: {
+        operationLimit:0
+      },
+      trial: {
+        price: 0,
+        duration: 45,
+        operationLimit:0
       }
     };
 
@@ -101,49 +100,60 @@ describe('routes/orgs', function() {
     this.server.use(helper.errorHandler);
   });
 
-  it('get organization', function(done) {
-    supertest(this.server)
-      .get('/' + this.organization.orgId)
-      .expect(200)
-      .end(done);
+  describe('GET /:orgId', function() {
+    it('returns organization', function(done) {
+      supertest(this.server)
+        .get('/' + this.organization.orgId)
+        .expect(200)
+        .end(done);
+    });
+
+    it('throws 404 if orgId not found', function(done) {
+      this.database.getOrganization = function(orgId, callback) {
+        callback(null, null);
+      };
+
+      supertest(this.server)
+        .get('/' + shortid.generate())
+        .expect(404)
+        .end(done);
+    });
   });
 
-  it('throws 404 if orgId not found', function(done) {
-    this.organization = null;
-    supertest(this.server)
-      .get('/' + shortid.generate())
-      .expect(404)
-      .end(done);
+  describe('GET /:orgId/members', function() {
+    it('retrieve org members', function(done) {
+      this.database.listOrgMembers = sinon.spy(function(orgId, callback) {
+        callback(null, [
+          {userId: '1', role:'admin'},
+          {userId: '2', role: 'contributor'}
+        ]);
+      });
+
+      this.database.getUserInfo = sinon.spy(function(userIds, callback) {
+        callback(null, {
+          '1': {
+            username: 'walter'
+          },
+          '2': {
+            username: 'alice'
+          }
+        });
+      });
+
+      supertest(this.server)
+        .get('/' + this.organization.orgId + '/members')
+        .expect(200)
+        .expect(function(res) {
+          assert.ok(self.database.listOrgMembers.calledWith(self.organization.orgId));
+          assert.ok(self.database.getUserInfo.calledWith(['1', '2']));
+          assert.equal(2, res.body.length);
+          assert.deepEqual(_.map(res.body, 'username'), ['alice', 'walter']);
+        })
+        .end(done);
+    });
   });
 
-  it('retrieve org members', function(done) {
-    this.orgMembers = [
-      {userId: '1', role:'admin'},
-      {userId: '2', role: 'contributor'}
-    ];
-
-    this.userInfo = {
-      '1': {
-        username: 'walter'
-      },
-      '2': {
-        username: 'alice'
-      }
-    };
-
-    supertest(this.server)
-      .get('/' + this.organization.orgId + '/members')
-      .expect(200)
-      .expect(function(res) {
-        assert.ok(self.options.database.listOrgMembers.calledWith(self.organization.orgId));
-        assert.ok(self.options.database.getUserInfo.calledWith(['1', '2']));
-        assert.equal(2, res.body.length);
-        assert.deepEqual(_.map(res.body, 'username'), ['alice', 'walter']);
-      })
-      .end(done);
-  });
-
-  describe('create org member', function() {
+  describe('POST /:orgId/members', function() {
     it('with existing known user', function(done) {
       var postData = {
         userId: shortid.generate(),
@@ -155,8 +165,8 @@ describe('routes/orgs', function() {
         .send(postData)
         .expect(201)
         .expect(function(res) {
-          assert.ok(self.options.database.createOrgMember.called);
-          assert.isFalse(self.options.database.updateUser.called);
+          assert.ok(self.database.createOrgMember.called);
+          assert.isFalse(self.database.updateUser.called);
         })
         .end(done);
     });
@@ -170,7 +180,7 @@ describe('routes/orgs', function() {
         avatar: 'profile.jpg'
       };
 
-      this.options.database.findUser = sinon.spy(function(providerUserId, provider, callback) {
+      this.database.findUser = sinon.spy(function(providerUserId, provider, callback) {
         callback(null, {userId: userId});
       });
 
@@ -179,10 +189,10 @@ describe('routes/orgs', function() {
         .send(postData)
         .expect(201)
         .expect(function(res) {
-          assert.ok(self.options.database.findUser.calledWith(postData.providerUserId, 'github'));
-          assert.ok(self.options.database.updateUser.called);
-          assert.ok(self.options.database.createOrgMember.called);
-          assert.isFalse(self.options.database.createUser.called);
+          assert.ok(self.database.findUser.calledWith(postData.providerUserId, 'github'));
+          assert.ok(self.database.updateUser.called);
+          assert.ok(self.database.createOrgMember.called);
+          assert.isFalse(self.database.createUser.called);
         })
         .end(done);
     });
@@ -196,7 +206,7 @@ describe('routes/orgs', function() {
         avatar: 'profile.jpg'
       };
 
-      this.options.database.findUser = sinon.spy(function(providerUserId, provider, callback) {
+      this.database.findUser = sinon.spy(function(providerUserId, provider, callback) {
         callback(null, null);
       });
 
@@ -205,10 +215,10 @@ describe('routes/orgs', function() {
         .send(postData)
         .expect(201)
         .expect(function(res) {
-          assert.ok(self.options.database.findUser.calledWith(postData.providerUserId, 'github'));
-          assert.ok(self.options.database.createUser.called);
-          assert.isFalse(self.options.database.updateUser.called);
-          assert.ok(self.options.database.createOrgMember.called);
+          assert.ok(self.database.findUser.calledWith(postData.providerUserId, 'github'));
+          assert.ok(self.database.createUser.called);
+          assert.isFalse(self.database.updateUser.called);
+          assert.ok(self.database.createOrgMember.called);
         })
         .end(done);
     });
@@ -222,15 +232,15 @@ describe('routes/orgs', function() {
     });
   });
 
-  describe('create organization', function() {
+  describe('POST /', function() {
     it('valid org', function(done) {
       supertest(this.server)
         .post('/')
         .send({name: 'test org'})
         .expect(201)
         .expect(function(res) {
-          assert.ok(self.options.database.createOrganization.called);
-          assert.deepEqual(self.options.database.createOrgMember.getCall(0).args[0], {
+          assert.ok(self.database.createOrganization.called);
+          assert.deepEqual(self.database.createOrgMember.getCall(0).args[0], {
             orgId: res.body.orgId,
             userId: self.user.userId,
             role: 'admin'
@@ -245,14 +255,14 @@ describe('routes/orgs', function() {
         .send({name: 'test org', plan: 'trial'})
         .expect(201)
         .expect(function(res) {
-          assert.ok(self.options.database.createOrganization.called);
-          assert.isMatch(self.options.database.createOrganization.args[0][0], {
+          assert.ok(self.database.createOrganization.called);
+          assert.isMatch(self.database.createOrganization.args[0][0], {
             trialStart: moment().format('YYYY-MM-DD'),
             trialEnd: moment().add(45, 'days').format('YYYY-MM-DD'),
             monthlyRate: 0,
             activated: false
           });
-          assert.isMatch(self.options.database.updateUser.args[0][0], {usedTrialOrg: true});
+          assert.isMatch(self.database.updateUser.args[0][0], {usedTrialOrg: true});
         })
         .end(done);
     });
@@ -281,8 +291,8 @@ describe('routes/orgs', function() {
     });
   });
 
-  it('terminate org', function(done) {
-    this.options.database.deleteOrgMembers = sinon.spy(function(orgId, callback) {
+  it('PUT /:orgId/terminate', function(done) {
+    this.database.deleteOrgMembers = sinon.spy(function(orgId, callback) {
       callback(null);
     });
 
@@ -290,12 +300,12 @@ describe('routes/orgs', function() {
       .put('/' + this.organization.orgId + '/terminate')
       .expect(200)
       .expect(function(res) {
-        assert.isMatch(self.options.database.updateOrganization.args[0][0], {
+        assert.isMatch(self.database.updateOrganization.args[0][0], {
           activated: false,
           terminated: true,
           terminatedBy: self.user.userId
         });
-        assert.ok(self.options.database.deleteOrgMembers.called);
+        assert.ok(self.database.deleteOrgMembers.called);
       })
       .end(done);
   });

@@ -31,12 +31,6 @@ describe('routes/versions', function() {
       appId: shortid.generate()
     };
 
-    // this.orgMember = {
-    //   userId: self.user.userId,
-    //   orgId: shortid.generate(),
-    //   role: 'contributor'
-    // };
-
     this.server.use(function(req, res, next) {
       req.ext = {
         user: self.user,
@@ -49,36 +43,36 @@ describe('routes/versions', function() {
 
     this.orgId = shortid.generate();
 
-    this.options = {
-      database: {
-        createVersion: sinon.spy(function(data, callback) {
-          callback(null, data);
-        }),
-        deleteVersion: sinon.spy(function(appId, callback) {
-          callback(null);
-        }),
-        nextVersionNum: sinon.spy(function(appId, callback) {
-          callback(null, 2);
-        }),
-        updateDeployedVersions: sinon.spy(function(appId, env, deployedVersions, callback) {
-          callback(null);
-        })
+    this.server.settings.database = this.database = {
+      createVersion: sinon.spy(function(data, callback) {
+        callback(null, data);
+      }),
+      deleteVersion: sinon.spy(function(appId, callback) {
+        callback(null);
+      }),
+      nextVersionNum: sinon.spy(function(appId, callback) {
+        callback(null, 2);
+      }),
+      updateDeployedVersions: sinon.spy(function(appId, env, deployedVersions, callback) {
+        callback(null);
+      })
+    };
+
+    this.server.settings.virtualAppRegistry = this.virtualAppRegistry = {
+      getById: function(appId, opts, callback) {
+        callback(null, _.find(self.appRegistry, {appId: appId}));
       },
-      appRegistry: {
-        getById: function(appId, opts, callback) {
-          callback(null, _.find(self.appRegistry, {appId: appId}));
-        },
-        getByName: function(name, opts, callback) {
-          callback(null, _.find(self.appRegistry, {name: name}));
-        },
-        flushApp: sinon.spy(function(app) {
-        })
+      getByName: function(name, opts, callback) {
+        callback(null, _.find(self.appRegistry, {name: name}));
       },
-      deployments: {
-        deleteAllVersions: sinon.spy(function(appId, callback) {
-          callback();
-        })
-      }
+      flushApp: sinon.spy(function(app) {
+      })
+    };
+
+    this.server.settings.deployments = this.deployments = {
+      deleteAllVersions: sinon.spy(function(appId, callback) {
+        callback();
+      })
     };
 
     // Register apps route middleware
@@ -90,7 +84,7 @@ describe('routes/versions', function() {
     this.server.use(helper.errorHandler);
   });
 
-  it('create new version', function(done) {
+  it('POST /', function(done) {
     var versionData = {
       appId: this.virtualApp.appId,
       versionId: shortid.generate()
@@ -101,7 +95,7 @@ describe('routes/versions', function() {
       .send(versionData)
       .expect(201)
       .expect(function(res) {
-        assert.ok(self.options.database.createVersion.called);
+        assert.ok(self.database.createVersion.called);
         assert.equal(res.body.versionId, versionData.versionId);
         assert.equal(res.body.versionNum, 2);
         assert.equal(res.body.name, 'v2');

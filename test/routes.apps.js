@@ -9,6 +9,8 @@ var debug = require('debug')('4front-api:test');
 var appsRoute = require('../lib/routes/apps');
 var helper = require('./helper');
 
+require('dash-assert');
+
 describe('routes/apps', function() {
   var self;
 
@@ -42,45 +44,51 @@ describe('routes/apps', function() {
 
     this.appRegistry = [];
 
-    this.options = {
-      database: {
-        createApplication: sinon.spy(function(data, callback) {
-          callback(null, data);
-        }),
-        updateApplication: sinon.spy(function(data, callback) {
-          callback(null, data);
-        }),
-        deleteApplication: sinon.spy(function(appId, callback) {
-          callback(null);
-        }),
-        updateTrafficRules: sinon.spy(function(appId, environment, rules, callback) {
-          callback(null);
-        }),
-        getAppName: function(name, callback) {
-          callback(null, self.appName);
-        },
-        getOrganization: function(orgId, callback) {
-          callback(null, self.organization);
-        },
-        getOrgMember: function(orgId, userId, callback) {
-          callback(null, self.orgMember);
-        }
+    this.server.settings.database = this.database = {
+      createApplication: sinon.spy(function(data, callback) {
+        callback(null, data);
+      }),
+      updateApplication: sinon.spy(function(data, callback) {
+        callback(null, data);
+      }),
+      deleteApplication: sinon.spy(function(appId, callback) {
+        callback(null);
+      }),
+      updateTrafficRules: sinon.spy(function(appId, environment, rules, callback) {
+        callback(null);
+      }),
+      getAppName: function(name, callback) {
+        callback(null, self.appName);
       },
-      appRegistry: {
-        getById: function(appId, opts, callback) {
-          callback(null, _.find(self.appRegistry, {appId: appId}));
-        },
-        getByName: function(name, opts, callback) {
-          callback(null, _.find(self.appRegistry, {name: name}));
-        },
-        flushApp: sinon.spy(function(app) {
-        })
+      getOrganization: function(orgId, callback) {
+        callback(null, self.organization);
       },
-      deployments: {
-        deleteAllVersions: sinon.spy(function(appId, callback) {
-          callback();
-        })
+      getOrgMember: function(orgId, userId, callback) {
+        callback(null, self.orgMember);
       }
+    };
+
+    this.server.settings.virtualAppRegistry = this.virtualAppRegistry = {
+      getById: function(appId, opts, callback) {
+        if (_.isFunction(opts))
+          callback = opts;
+
+        callback(null, _.find(self.appRegistry, {appId: appId}));
+      },
+      getByName: function(name, opts, callback) {
+        if (_.isFunction(opts))
+          callback = opts;
+
+        callback(null, _.find(self.appRegistry, {name: name}));
+      },
+      flushApp: sinon.spy(function(app) {
+      })
+    };
+
+    this.server.settings.deployments = this.deployments = {
+      deleteAllVersions: sinon.spy(function(appId, callback) {
+        callback();
+      })
     };
 
     // Register apps route middleware
@@ -92,7 +100,7 @@ describe('routes/apps', function() {
     this.server.use(helper.errorHandler);
   });
 
-  describe('check app name existence', function() {
+  describe('HEAD /:appName', function() {
     it('existing app name', function(done) {
       var appData = {appId: shortid.generate(), name: 'appname'};
       this.appRegistry.push(appData);
@@ -111,7 +119,7 @@ describe('routes/apps', function() {
     });
   });
 
-  describe('create application', function() {
+  describe('POST /', function() {
     var appData = {
       name: 'app-name'
     };
@@ -122,16 +130,16 @@ describe('routes/apps', function() {
         .send(appData)
         .expect(201)
         .expect(function(res) {
-          assert.ok(_.isEqual(_.pick(res.body, _.keys(appData)), appData));
+          assert.isMatch(res.body, appData);
           assert.ok(res.body.appId);
           assert.equal(self.user.userId, res.body.ownerId);
-          assert.ok(self.options.database.createApplication.called);
+          assert.ok(self.database.createApplication.called);
         })
         .end(done);
     });
   });
 
-  it('updates application', function(done) {
+  it('PUT /:appId', function(done) {
     var appData = {
       appId: shortid.generate(),
       name: 'updated-name',
@@ -146,12 +154,12 @@ describe('routes/apps', function() {
       .expect(200)
       .expect(function(res) {
         assert.equal(res.body.name, 'updated-name');
-        assert.ok(self.options.database.updateApplication.called);
+        assert.ok(self.database.updateApplication.called);
       })
       .end(done);
   });
 
-  it('deletes application', function(done) {
+  it('DELETE /:appId', function(done) {
     var appData = {appId: shortid.generate(), orgId: shortid.generate()};
     this.appRegistry.push(appData);
 
@@ -159,14 +167,14 @@ describe('routes/apps', function() {
       .delete('/' + appData.appId)
       .expect(204)
       .expect(function(res) {
-        assert.ok(self.options.database.deleteApplication.calledWith(appData.appId));
-        assert.ok(self.options.deployments.deleteAllVersions.called);
-        assert.ok(self.options.appRegistry.flushApp.called);
+        assert.ok(self.database.deleteApplication.calledWith(appData.appId));
+        assert.ok(self.deployments.deleteAllVersions.called);
+        assert.ok(self.virtualAppRegistry.flushApp.called);
       })
       .end(done);
   });
 
-  it('updates traffic rules', function(done) {
+  it('POST /:appId/traffic-rules', function(done) {
     var appData = {appId: shortid.generate(), orgId: shortid.generate()};
     this.appRegistry.push(appData);
 
@@ -179,7 +187,7 @@ describe('routes/apps', function() {
       .expect(200)
       .expect(function(res) {
         assert.deepEqual(res.body, rules);
-        assert.ok(self.options.database.updateTrafficRules.calledWith(appData.appId, environment));
+        assert.ok(self.database.updateTrafficRules.calledWith(appData.appId, environment));
       })
       .end(done);
   });

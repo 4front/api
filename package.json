@@ -39,6 +39,7 @@
     "express": "^4.12.3",
     "lodash": "^3.6.0",
     "moment": "^2.9.0",
+    "randomstring": "^1.0.5",
     "shortid": "^2.2.1",
     "simple-errors": "^1.0.1"
   }

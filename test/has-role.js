@@ -8,6 +8,8 @@ var debug = require('debug')('4front-api:test');
 var hasRole = require('../lib/middleware/has-role');
 var helper = require('./helper');
 
+require('dash-assert');
+
 describe('hasRole()', function() {
   var self;
 
@@ -69,7 +71,7 @@ describe('hasRole()', function() {
       .expect(401)
       .expect(function(res) {
         assert.equal(res.body.code, 'lackRequiredRole');
-        assert.ok(_.isEqual(res.body.requiredRole, ['admin', 'contributor']));
+        assert.noDifferences(res.body.requiredRole, ['admin', 'contributor']);
       })
       .end(done);
   });

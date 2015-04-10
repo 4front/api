@@ -27,14 +27,14 @@ describe('auth()', function() {
       next();
     });
 
-    this.database = {
+    this.server.settings.database = {
       getUser: function(userId, callback) {
         callback(null, self.user);
       }
     };
 
     // Register middleware for handling the appId parameter
-    this.server.use(auth({database: this.database}));
+    this.server.use(auth());
 
     this.server.get('/', function(req, res, next) {
       res.json(req.ext);
