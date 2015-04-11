@@ -9,6 +9,8 @@ var debug = require('debug')('4front-api:test');
 var versionsRoute = require('../lib/routes/versions');
 var helper = require('./helper');
 
+require('dash-assert');
+
 describe('routes/versions', function() {
   var self;
 
@@ -28,7 +30,8 @@ describe('routes/versions', function() {
     };
 
     this.virtualApp = {
-      appId: shortid.generate()
+      appId: shortid.generate(),
+      url: 'http://test.apphost.com'
     };
 
     this.server.use(function(req, res, next) {
@@ -52,9 +55,6 @@ describe('routes/versions', function() {
       }),
       nextVersionNum: sinon.spy(function(appId, callback) {
         callback(null, 2);
-      }),
-      updateDeployedVersions: sinon.spy(function(appId, env, deployedVersions, callback) {
-        callback(null);
       })
     };
 
@@ -84,22 +84,193 @@ describe('routes/versions', function() {
     this.server.use(helper.errorHandler);
   });
 
-  it('POST /', function(done) {
-    var versionData = {
-      appId: this.virtualApp.appId,
-      versionId: shortid.generate()
-    };
+  describe('POST /', function() {
+    it('creates new version', function(done) {
+      var versionData = {
+        appId: this.virtualApp.appId,
+        versionId: shortid.generate()
+      };
 
-    supertest(this.server)
-      .post('/')
-      .send(versionData)
-      .expect(201)
-      .expect(function(res) {
-        assert.ok(self.database.createVersion.called);
-        assert.equal(res.body.versionId, versionData.versionId);
-        assert.equal(res.body.versionNum, 2);
-        assert.equal(res.body.name, 'v2');
-      })
-      .end(done);
+      supertest(this.server)
+        .post('/')
+        .send(versionData)
+        .expect(201)
+        .expect(function(res) {
+          assert.ok(self.database.createVersion.called);
+          assert.isMatch(res.body, {
+            versionId: versionData.versionId,
+            versionNum: 2,
+            name: 'v2'
+          });
+
+          assert.equal(res.body.previewUrl, self.virtualApp.url + "?_version=" + versionData.versionId);
+        })
+        .end(done);
+    });
+
+    it('direct all traffic to new version', function(done) {
+      var versionData = {
+        appId: this.virtualApp.appId,
+        versionId: shortid.generate(),
+        forceAllTrafficToNewVersion: true
+      };
+
+      this.database.updateTrafficRules = sinon.spy(function(appId, env, rules, callback) {
+        callback(null, null);
+      });
+
+      supertest(this.server)
+        .post('/')
+        .send(versionData)
+        .expect(201)
+        .expect(function(res) {
+          assert.ok(self.database.createVersion.called);
+          assert.isTrue(self.database.updateTrafficRules.calledWith(
+            self.virtualApp.appId,
+            self.organization.environments[0],
+            [{versionId: versionData.versionId, rule:'*'}]));
+        })
+        .end(done);
+    });
+
+    it('no environments configured', function(done) {
+      this.organization.environments = null;
+
+      supertest(this.server)
+        .post('/')
+        .send({versionId: shortid.generate()})
+        .expect(400)
+        .expect(function(res) {
+          assert.equal(res.body.code, 'noEnvironmentsExist');
+        })
+        .end(done);
+    });
+  });
+
+  describe('GET /:versionId', function() {
+    it('returns version', function(done) {
+      var versionId = shortid.generate();
+      this.database.getVersion = sinon.spy(function(appId, versionId, callback) {
+        callback(null, {versionId: versionId});
+      });
+
+      supertest(this.server)
+        .get('/' + versionId)
+        .expect(200)
+        .expect(function(res) {
+          assert.isTrue(self.database.getVersion.calledWith(self.virtualApp.appId, versionId));
+          assert.equal(res.body.versionId, versionId);
+        })
+        .end(done);
+    });
+
+    it('returns 404 for missing version', function(done) {
+      this.database.getVersion = sinon.spy(function(appId, versionId, callback) {
+        callback(null, null);
+      });
+
+      supertest(this.server)
+        .get('/' + shortid.generate())
+        .expect(404)
+        .expect(function(res) {
+          assert.equal(res.body.code, 'versionNotFound');
+        })
+        .end(done);
+    });
+  });
+
+  describe('GET /', function() {
+    it('lists versions', function(done) {
+      var dbVersions = _.times(3, function(i) {
+        return {
+          appId: self.virtualApp.appId,
+          versionId: shortid.generate(),
+          versionNum: i + 1,
+          userId: i.toString()
+        };
+      });
+
+      _.extend(this.database, {
+        listVersions: sinon.spy(function(appId, limit, callback) {
+          callback(null, dbVersions);
+        }),
+        getUserInfo: sinon.spy(function(userIds, callback) {
+          var userInfo = {};
+          _.times(3, function(i) {
+            userInfo[i.toString()] = {
+              username: 'user' + (i+1)
+            }
+          });
+
+          callback(null, userInfo);
+        })
+      });
+
+      supertest(this.server)
+        .get('/')
+        .expect(200)
+        .expect(function(res) {
+          assert.equal(3, res.body.length);
+          assert.deepEqual(_.map(res.body, 'username'), ['user3', 'user2', 'user1']);
+          assert.isTrue(self.database.listVersions.calledWith(self.virtualApp.appId));
+          assert.noDifferences(self.database.getUserInfo.args[0][0], _.map(dbVersions, 'userId'));
+        })
+        .end(done);
+    });
+  });
+
+  describe('PUT /:versionId', function() {
+    it('updates version name and message', function(done) {
+      var versionData = {
+        versionId: shortid.generate(),
+        name: '1.0.0',
+        message: "version message",
+        versionNum: 5 // This should not get updated
+      };
+
+      self.database.updateVersion = sinon.spy(function(versionData, callback) {
+        callback(null, versionData);
+      });
+
+      supertest(this.server)
+        .put('/' + versionData.versionId)
+        .send(versionData)
+        .expect(200)
+        .expect(function(res) {
+          assert.isTrue(self.database.updateVersion.calledWith(_.omit(versionData, 'versionNum')));
+        })
+        .end(done);
+    });
+  });
+
+  describe('DELETE /:versionId', function() {
+    it('deletes version', function(done) {
+      var versionId = shortid.generate();
+
+      _.extend(this.database, {
+        getVersion: sinon.spy(function(appId, versionId, callback) {
+          callback(null, {versionId: versionId})
+        }),
+        deleteVersion: sinon.spy(function(appId, versionId, callback) {
+          callback(null, null);
+        })
+      });
+
+      this.server.settings.deployments = {
+        deleteVersion: sinon.spy(function(appId, versionId, cb) {
+          cb(null);
+        })
+      };
+
+      supertest(this.server)
+        .delete('/' + versionId)
+        .expect(204)
+        .expect(function(res) {
+          assert.isTrue(self.database.getVersion.calledWith(self.virtualApp.appId, versionId));
+          assert.isTrue(self.database.deleteVersion.calledWith(self.virtualApp.appId, versionId));
+          assert.isTrue(self.server.settings.deployments.deleteVersion.calledWith(self.virtualApp.appId, versionId));
+        })
+        .end(done);
+    });
   });
 });
