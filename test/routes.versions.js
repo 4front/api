@@ -3,6 +3,8 @@ var express = require('express');
 var shortid = require('shortid');
 var assert = require('assert');
 var sinon = require('sinon');
+var fs = require('fs');
+var path = require('path');
 var _ = require('lodash');
 var bodyParser = require('body-parser');
 var debug = require('debug')('4front-api:test');
@@ -269,6 +271,33 @@ describe('routes/versions', function() {
           assert.isTrue(self.database.getVersion.calledWith(self.virtualApp.appId, versionId));
           assert.isTrue(self.database.deleteVersion.calledWith(self.virtualApp.appId, versionId));
           assert.isTrue(self.server.settings.deployments.deleteVersion.calledWith(self.virtualApp.appId, versionId));
+        })
+        .end(done);
+    });
+  });
+
+  describe('POST /:versionId/deploy', function() {
+    it('deploys file', function(done) {
+      var versionId = shortid.generate();
+
+      this.deployments.deployFile = sinon.spy(function(appId, versionId, fileInfo, callback) {
+        callback(null);
+      });
+
+      var testFile = path.resolve(__dirname, './fixtures/lorum-ipsum.html');
+
+      var fileSize = fs.statSync(testFile).size;
+      debugger;
+      supertest(this.server)
+        .post('/' + versionId + "/deploy/html/lorum-ipsum.html")
+        .set('Content-Length', fileSize)
+        .send(fs.readFileSync(testFile).toString())
+        .expect(201)
+        .expect(function(res) {
+          assert.isTrue(self.deployments.deployFile.calledWith(self.virtualApp.appId, versionId));
+          assert.equal(self.deployments.deployFile.args[0][2].size, fileSize);
+          assert.equal(self.deployments.deployFile.args[0][2].path, "html/lorum-ipsum.html");
+          assert.equal(res.body.key, 'html/lorum-ipsum.html');
         })
         .end(done);
     });
