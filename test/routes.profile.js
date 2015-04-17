@@ -13,6 +13,8 @@ var helper = require('./helper');
 require('dash-assert');
 
 describe('routes/profile', function() {
+  var self;
+  
   beforeEach(function() {
     self = this;
     this.server = express();

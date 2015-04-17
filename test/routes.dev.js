@@ -57,7 +57,7 @@ describe('routes/dev', function() {
         .send(fileContents)
         .expect(201)
         .end(function(err) {
-          var cacheKey = self.virtualApp.appId + '/' + self.user.userId + '/pages/blog.html';
+          var cacheKey = self.user.userId + '/' + self.virtualApp.appId + '/pages/blog.html';
 
           self.server.settings.cache.get(cacheKey, function(err, contents) {
             assert.equal(fileContents, contents.toString());
