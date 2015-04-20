@@ -14,12 +14,14 @@ require('dash-assert');
 
 describe('routes/profile', function() {
   var self;
-  
+
   beforeEach(function() {
     self = this;
     this.server = express();
 
     this.server.settings.database = this.database = {};
+    this.server.settings.jwtTokenExpireMinutes = 20;
+    this.server.settings.jwtTokenSecret = 'asdflaksdjflaksdf';
 
     this.user = {
       userId: shortid.generate(),
@@ -28,6 +30,7 @@ describe('routes/profile', function() {
     };
 
     this.server.use(function(req, res, next) {
+      debug("setting up request");
       req.ext = {
         user: self.user
       };
@@ -200,6 +203,73 @@ describe('routes/profile', function() {
         .expect(function(res) {
           assert.isTrue(self.database.userApplications.calledWith(self.user.userId));
           assert.noDifferences(self.server.settings.virtualAppRegistry.batchGetById.args[0][0], appIds);
+        })
+        .end(done);
+    });
+  });
+
+  describe('POST /login', function() {
+    beforeEach(function() {
+      self = this;
+
+      this.user = null;
+
+      this.providerUser = {
+        userId: shortid.generate(),
+        username: 'testuser',
+        displayName: 'Test User'
+      };
+
+      this.server.settings.identityProvider = {
+        name: 'ActiveDirectory',
+        login: sinon.spy(function(username, password, callback) {
+          callback(null, self.providerUser);
+        })
+      };
+
+      this.userId = shortid.generate();
+      this.database.findUser = sinon.spy(function(providerUserId, provider, callback) {
+        callback(null, {
+          userId: self.userId,
+          providerUserId: providerUserId,
+          provider: provider
+        });
+      });
+    });
+
+    it('successfully logs in', function(done) {
+      debug('running login test');
+      supertest(this.server)
+        .post('/login')
+        .send({username: this.providerUser.username, password: 'password'})
+        .expect(200)
+        .expect(function (res) {
+          assert.isTrue(self.server.settings.identityProvider.login.calledWith(
+            self.providerUser.username, 'password'));
+
+          assert.isTrue(self.server.settings.database.findUser.calledWith(
+            self.providerUser.userId,
+            self.server.settings.identityProvider.name));
+
+          assert.isString(res.body.token);
+          assert.isNumber(res.body.expires);
+          assert.ok(res.body.expires > Date.now());
+        })
+        .end(done);
+    });
+
+    it('login failure', function(done) {
+      this.server.settings.identityProvider.login = sinon.spy(function(username, password, callback) {
+        callback(new Error("Invalid username/password"));
+      });
+
+      supertest(this.server)
+        .post('/login')
+        .send({username: this.providerUser.username, password: 'password'})
+        .expect(401)
+        .expect(function (res) {
+          assert.isTrue(self.server.settings.identityProvider.login.called);
+          assert.isFalse(self.server.settings.database.findUser.called);
         })
         .end(done);
     });
