@@ -3,9 +3,12 @@ var express = require('express');
 var shortid = require('shortid');
 var assert = require('assert');
 var sinon = require('sinon');
+var jwt = require('jwt-simple');
 var debug = require('debug')('4front-api:test');
 var auth = require('../lib/middleware/auth');
 var helper = require('./helper');
+
+require('dash-assert');
 
 describe('auth()', function() {
   var self;
@@ -33,20 +36,27 @@ describe('auth()', function() {
       }
     };
 
+    this.server.settings.jwtTokenSecret = 'asdflkjaskdlfjaskldf';
+
     // Register middleware for handling the appId parameter
     this.server.use(auth());
 
-    this.server.get('/', function(req, res, next) {
+    this.server.use(function(req, res, next) {
       res.json(req.ext);
     });
 
     this.server.use(helper.errorHandler);
   });
 
-  it('sets req.ext.user when Authorization header is valid', function(done) {
+  it('sets req.ext.user when X-Access-Token header is valid', function(done) {
+    var token = jwt.encode({
+      iss: this.userId,
+      exp: Date.now() + 100
+    }, this.server.get('jwtTokenSecret'));
+
     supertest(this.server)
       .get('/')
-      .set('Authorization', 'Basic ' + new Buffer(this.user.userId + ':' + this.user.secretKey).toString('base64'))
+      .set('X-Access-Token', token)
       .expect(200)
       .expect(function(res) {
         assert.equal(res.body.user.userId, self.user.userId);
@@ -55,34 +65,55 @@ describe('auth()', function() {
       .end(done);
   });
 
-  it('returns 403 when Authorization header is missing', function(done) {
+  it('returns 401 when X-Access-Token header is missing', function(done) {
     supertest(this.server)
       .get('/')
-      .expect(403)
-      .expect(function(res) {
-        assert.equal(res.body.code, 'invalidCredentials')
-      })
-      .end(done);
-  });
-
-  it('returns 403 when Authorization header is invalid', function(done) {
-    supertest(this.server)
-      .get('/')
-      .set('Authorization', new Buffer('asdfasdf').toString('base64'))
-      .expect(403)
-      .expect(function(res) {
-        assert.equal(res.body.code, 'invalidCredentials')
-      })
-      .end(done);
-  });
-
-  it('returns 403 when secretKey doesnt match', function(done) {
-    supertest(this.server)
-      .get('/')
-      .set('Authorization', 'Basic ' + new Buffer(this.user.userId + ':asdfasdf').toString('base64'))
       .expect(401)
       .expect(function(res) {
-        assert.equal(res.body.code, 'invalidCredentials')
+        assert.equal(res.body.code, 'notAuthenticated')
+      })
+      .end(done);
+  });
+
+  it('returns 401 when Authorization header is invalid', function(done) {
+    var token = jwt.encode({
+      iss: this.userId,
+      exp: Date.now() + 100
+    }, 'not_the_real_token_secret');
+
+    supertest(this.server)
+      .get('/')
+      .set('X-Access-Token', token)
+      .expect(401)
+      .expect(function(res) {
+        assert.equal(res.body.code, 'notAuthenticated')
+      })
+      .end(done);
+  });
+
+  it('returns 401 when token is expired', function(done) {
+    var token = jwt.encode({
+      iss: this.userId,
+      exp: Date.now() - 100
+    }, this.server.get('jwtTokenSecret'));
+
+    supertest(this.server)
+      .get('/')
+      .set('X-Access-Token', token)
+      .expect(401)
+      .expect(function(res) {
+        assert.equal(res.body.code, 'notAuthenticated')
+      })
+      .end(done);
+  });
+
+  it('skips authentication of profile/login requests', function(done) {
+    supertest(this.server)
+      .post('/profile/login')
+      .send({username: 'test', password:'password'})
+      .expect(200)
+      .expect(function(res) {
+        assert.isUndefined(res.user);
       })
       .end(done);
   });

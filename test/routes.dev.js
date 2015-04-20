@@ -48,8 +48,8 @@ describe('routes/dev', function() {
     this.server.use(helper.errorHandler);
   });
 
-  describe('POST /', function() {
-    it('deploy a file to the sandbox', function(done) {
+  describe('POST /upload', function() {
+    it('upload a file to the sandbox', function(done) {
 
       var fileContents = "<html>blog</html>";
       supertest(this.server)
