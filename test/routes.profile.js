@@ -50,91 +50,6 @@ describe('routes/profile', function() {
     this.server.use(helper.errorHandler);
   });
 
-  // describe('GET /', function() {
-  //   // this.user
-  //   it('new user', function(done) {
-  //     self.user.userId = null;
-  //
-  //     this.database.findUser = sinon.spy(function(providerUserId, provider, callback) {
-  //       callback(null, null);
-  //     });
-  //
-  //     this.database.createUser = sinon.spy(function(userData, callback) {
-  //       callback(null, userData);
-  //     });
-  //
-  //     supertest(this.server)
-  //       .get('/')
-  //       .expect(201)
-  //       .expect(function() {
-  //         assert.isTrue(self.database.findUser.calledWith(self.user.providerUserId, self.user.provider));
-  //         assert.isTrue(self.database.createUser.called);
-  //         assert.isMatch(self.database.createUser.args[0][0], self.user);
-  //       })
-  //       .end(done);
-  //   });
-  //
-  //   it('existing user', function(done) {
-  //     self.user.userId = null;
-  //
-  //     var existingUser = {
-  //       userId: shortid.generate(),
-  //       secretKey: shortid.generate(),
-  //       email: 'test@test.com'
-  //     };
-  //
-  //     _.extend(this.database, {
-  //       findUser: sinon.spy(function(providerUserId, provider, callback) {
-  //         callback(null, existingUser);
-  //       }),
-  //       listUserOrgs: sinon.spy(function(userId, callback) {
-  //         callback(null, []);
-  //       })
-  //     });
-  //
-  //     supertest(this.server)
-  //       .get('/')
-  //       .expect(200)
-  //       .expect(function() {
-  //         assert.isTrue(self.database.findUser.called);
-  //         assert.isTrue(self.database.listUserOrgs.calledWith(existingUser.userId));
-  //       })
-  //       .end(done);
-  //   });
-  //
-  //   it('existing user requiring update', function(done) {
-  //     var existingUser = {
-  //       userId: shortid.generate(),
-  //       email: 'test@test.com'
-  //       // omit the secretKey
-  //     };
-  //
-  //     _.extend(this.database, {
-  //       findUser: sinon.spy(function(providerUserId, provider, callback) {
-  //         callback(null, existingUser);
-  //       }),
-  //       updateUser: sinon.spy(function(userData, callback) {
-  //         callback(null, userData);
-  //       }),
-  //       listUserOrgs: sinon.spy(function(userId, callback) {
-  //         callback(null, []);
-  //       })
-  //     });
-  //
-  //     supertest(this.server)
-  //       .get('/')
-  //       .expect(200)
-  //       .expect(function() {
-  //         assert.isTrue(self.database.findUser.called);
-  //         assert.isTrue(self.database.updateUser.called);
-  //         assert.noDifferences(_.keys(self.database.updateUser.args[0][0]), ['userId', 'avatar', 'secretKey']);
-  //         assert.isTrue(self.database.listUserOrgs.calledWith(existingUser.userId));
-  //       })
-  //       .end(done);
-  //   });
-  // });
-
-
   describe('PUT /', function() {
     it('permission denied when userIds not match', function(done) {
       supertest(this.server)
@@ -212,64 +127,39 @@ describe('routes/profile', function() {
     beforeEach(function() {
       self = this;
 
-      this.user = null;
-
-      this.providerUser = {
-        userId: shortid.generate(),
-        username: 'testuser',
-        displayName: 'Test User'
-      };
-
-      this.server.settings.identityProvider = {
-        name: 'ActiveDirectory',
-        login: sinon.spy(function(username, password, callback) {
-          callback(null, self.providerUser);
-        })
-      };
-
-      this.userId = shortid.generate();
-      this.database.findUser = sinon.spy(function(providerUserId, provider, callback) {
-        callback(null, {
-          userId: self.userId,
-          providerUserId: providerUserId,
-          provider: provider
-        });
-      });
+      this.username = 'testuser';
+      this.password = 'password';
     });
 
     it('successfully logs in', function(done) {
+      this.server.settings.login = sinon.spy(function(username, password, callback) {
+        callback(null, {userId: '123'});
+      });
+
       debug('running login test');
       supertest(this.server)
         .post('/login')
-        .send({username: this.providerUser.username, password: 'password'})
+        .send({username: this.username, password: this.password})
         .expect(200)
         .expect(function (res) {
-          assert.isTrue(self.server.settings.identityProvider.login.calledWith(
-            self.providerUser.username, 'password'));
-
-          assert.isTrue(self.server.settings.database.findUser.calledWith(
-            self.providerUser.userId,
-            self.server.settings.identityProvider.name));
-
-          assert.isString(res.body.token);
-          assert.isNumber(res.body.expires);
-          assert.ok(res.body.expires > Date.now());
+          assert.isTrue(self.server.settings.login.calledWith(
+            self.username, self.password));
         })
         .end(done);
     });
 
     it('login failure', function(done) {
-      this.server.settings.identityProvider.login = sinon.spy(function(username, password, callback) {
-        callback(new Error("Invalid username/password"));
+      this.server.settings.login = sinon.spy(function(username, password, callback) {
+        callback(null, null);
       });
 
       supertest(this.server)
         .post('/login')
-        .send({username: this.providerUser.username, password: 'password'})
+        .send({username: this.username, password: this.password})
         .expect(401)
         .expect(function (res) {
-          assert.isTrue(self.server.settings.identityProvider.login.called);
-          assert.isFalse(self.server.settings.database.findUser.called);
+          assert.isTrue(self.server.settings.login.called);
+          assert.equal(res.body.code, 'invalidCredentials');
         })
         .end(done);
     });
