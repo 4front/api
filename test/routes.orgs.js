@@ -120,6 +120,31 @@ describe('routes/orgs', function() {
     });
   });
 
+  describe('GET /:orgId/apps', function() {
+    it('retrieves org apps', function(done) {
+      var appIds = ['1', '2', '3'];
+      this.database.listOrgAppIds = sinon.spy(function(orgId, callback) {
+        callback(null, appIds);
+      });
+
+      this.server.settings.virtualAppRegistry = {
+        batchGetById: sinon.spy(function(appIds, callback) {
+          callback(null, _.map(appIds, function(appId) {
+            return {appId: appId};
+          }));
+        })
+      };
+
+      supertest(this.server)
+        .get('/' + this.organization.orgId + '/apps')
+        .expect(200)
+        .expect(function(res) {
+          assert.noDifferences(_.map(res.body, 'appId'), appIds);
+        })
+        .end(done);
+    });
+  });
+
   describe('GET /:orgId/members', function() {
     it('retrieve org members', function(done) {
       this.database.listOrgMembers = sinon.spy(function(orgId, callback) {
