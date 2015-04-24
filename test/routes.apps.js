@@ -82,6 +82,8 @@ describe('routes/apps', function() {
         callback(null, _.find(self.appRegistry, {name: name}));
       },
       flushApp: sinon.spy(function(app) {
+      }),
+      add: sinon.spy(function(app){
       })
     };
 
@@ -134,6 +136,7 @@ describe('routes/apps', function() {
           assert.ok(res.body.appId);
           assert.equal(self.user.userId, res.body.ownerId);
           assert.ok(self.database.createApplication.called);
+          assert.ok(self.virtualAppRegistry.add.calledWith(sinon.match({appId: res.body.appId})));
         })
         .end(done);
     });
