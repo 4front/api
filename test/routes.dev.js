@@ -22,6 +22,24 @@ describe('routes/dev', function() {
     this.server = express();
     this.server.settings.cache = memoryCache();
 
+    this.server.settings.virtualAppRegistry = {
+      getById: function(appId, opts, callback) {
+        if (_.isFunction(opts))
+          callback = opts;
+
+        callback(null, {appId: appId, orgId: '1'});
+      }
+    };
+
+    this.server.settings.database = {
+      getOrganization: function(orgId, cb) {
+        cb(null, {orgId: orgId});
+      },
+      getOrgMember: function(orgId, userId, cb) {
+        cb(null, {orgId: orgId, userId: userId, role: 'admin'});
+      }
+    };
+
     this.user = {
       userId: shortid.generate(),
       username: 'tester',
@@ -53,7 +71,7 @@ describe('routes/dev', function() {
 
       var fileContents = "<html>blog</html>";
       supertest(this.server)
-        .post('/upload/pages/blog.html')
+        .post('/' + self.virtualApp.appId + '/upload/pages/blog.html')
         .send(fileContents)
         .expect(201)
         .end(function(err) {
@@ -61,6 +79,32 @@ describe('routes/dev', function() {
 
           self.server.settings.cache.get(cacheKey, function(err, contents) {
             assert.equal(fileContents, contents.toString());
+            done();
+          });
+        });
+    });
+  });
+
+  describe('POST /manifest', function() {
+    it('uploads manifest to the sandbox', function(done) {
+      var manifest = {
+        router: [
+          {
+            module: 'html-page',
+            options: {}
+          }
+        ]
+      };
+
+      supertest(this.server)
+        .post('/' + this.virtualApp.appId + '/manifest')
+        .send(JSON.stringify(manifest))
+        .expect(201)
+        .end(function(res) {
+          var cacheKey = self.user.userId + '/' + self.virtualApp.appId + '/_manifest';
+          self.server.settings.cache.get(cacheKey, function(err, contents) {
+            assert.deepEqual(JSON.parse(contents), manifest);
+            
             done();
           });
         });
