@@ -5,7 +5,6 @@ var assert = require('assert');
 var moment = require('moment');
 var sinon = require('sinon');
 var _ = require('lodash');
-var bodyParser = require('body-parser');
 var debug = require('debug')('4front-api:test');
 var orgsRoute = require('../lib/routes/orgs');
 var helper = require('./helper');
@@ -91,9 +90,6 @@ describe('routes/orgs', function() {
         operationLimit:0
       }
     };
-
-    // Register apps route middleware
-    this.server.use(bodyParser.json());
 
     this.server.use(orgsRoute(this.options));
 

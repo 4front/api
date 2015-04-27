@@ -5,7 +5,6 @@ var assert = require('assert');
 var moment = require('moment');
 var sinon = require('sinon');
 var _ = require('lodash');
-var bodyParser = require('body-parser');
 var debug = require('debug')('4front-api:test');
 var profileRoute = require('../lib/routes/profile');
 var helper = require('./helper');
@@ -41,9 +40,6 @@ describe('routes/profile', function() {
 
       next();
     });
-
-    // Register apps route middleware
-    this.server.use(bodyParser.json());
 
     this.server.use(profileRoute());
 
@@ -94,30 +90,6 @@ describe('routes/profile', function() {
         .expect(function(res) {
           assert.isTrue(self.database.listUserOrgs.calledWith(self.user.userId));
           assert.equal(2, res.body.length);
-        })
-        .end(done);
-    });
-  });
-
-  describe('GET /apps', function() {
-    it('lists user personal apps', function(done) {
-      var appIds = ['1', '2'];
-      this.database.userApplications = sinon.spy(function(userId, callback) {
-        callback(null, appIds);
-      });
-
-      this.server.settings.virtualAppRegistry = {
-        batchGetById: sinon.spy(function(appId, callback) {
-          callback(null, {appId: appId});
-        })
-      };
-
-      supertest(this.server)
-        .get('/apps')
-        .expect(200)
-        .expect(function(res) {
-          assert.isTrue(self.database.userApplications.calledWith(self.user.userId));
-          assert.noDifferences(self.server.settings.virtualAppRegistry.batchGetById.args[0][0], appIds);
         })
         .end(done);
     });

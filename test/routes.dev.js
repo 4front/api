@@ -9,7 +9,6 @@ var _ = require('lodash');
 var sbuff = require('simple-bufferstream');
 var memoryCache = require('memory-cache-stream');
 var debug = require('debug')('4front-api:test');
-var bodyParser = require('body-parser');
 var devRoute = require('../lib/routes/dev');
 var helper = require('./helper');
 
@@ -60,8 +59,6 @@ describe('routes/dev', function() {
 
       next();
     });
-
-    this.server.use(bodyParser.json());
 
     // Register middleware for handling the appId parameter
     this.server.use(devRoute());

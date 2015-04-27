@@ -93,9 +93,6 @@ describe('routes/apps', function() {
       })
     };
 
-    // Register apps route middleware
-    this.server.use(bodyParser.json());
-
     // Register middleware for handling the appId parameter
     this.server.use(appsRoute(this.options));
 

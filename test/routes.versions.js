@@ -6,7 +6,6 @@ var sinon = require('sinon');
 var fs = require('fs');
 var path = require('path');
 var _ = require('lodash');
-var bodyParser = require('body-parser');
 var debug = require('debug')('4front-api:test');
 var versionsRoute = require('../lib/routes/versions');
 var helper = require('./helper');
@@ -76,9 +75,6 @@ describe('routes/versions', function() {
         callback();
       })
     };
-
-    // Register apps route middleware
-    this.server.use(bodyParser.json());
 
     // Register middleware for handling the appId parameter
     this.server.use(versionsRoute(this.options));
