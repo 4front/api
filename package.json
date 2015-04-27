@@ -46,6 +46,7 @@
     "randomstring": "^1.0.5",
     "shortid": "^2.2.1",
     "simple-errors": "^1.0.1",
-    "through2": "^0.6.5"
+    "through2": "^0.6.5",
+    "url-join": "0.0.1"
   }
 }
