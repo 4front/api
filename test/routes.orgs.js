@@ -310,6 +310,20 @@ describe('routes/orgs', function() {
         })
         .end(done);
     });
+
+    it('org default values', function(done) {
+      supertest(this.server)
+        .post('/')
+        .send({name: 'org name'})
+        .expect(201)
+        .expect(function(res) {
+          assert.isTrue(self.database.createOrganization.calledWith(sinon.match({
+            plan: 'unlimited',
+            environments: ['production']
+          })));
+        })
+        .end(done);
+    });
   });
 
   it('PUT /:orgId/terminate', function(done) {
