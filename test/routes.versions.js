@@ -49,7 +49,7 @@ describe('routes/versions', function() {
 
     this.server.settings.database = this.database = {
       createVersion: sinon.spy(function(data, callback) {
-        callback(null, data);
+        callback(null, _.extend(data, {complete: false}));
       }),
       deleteVersion: sinon.spy(function(appId, callback) {
         callback(null);
@@ -59,6 +59,9 @@ describe('routes/versions', function() {
       }),
       updateVersion: sinon.spy(function(versionData, callback) {
         callback(null, versionData);
+      }),
+      updateTrafficRules: sinon.spy(function(appId, environment, trafficRules, callback) {
+        callback(null);
       })
     };
 
@@ -98,7 +101,7 @@ describe('routes/versions', function() {
             appId: self.virtualApp.appId,
             versionNum: 2,
             name: 'v2',
-            active: false
+            complete: false
           });
 
           assert.isString(res.body.versionId);
@@ -109,11 +112,13 @@ describe('routes/versions', function() {
     });
   });
 
-  describe('PUT /:versionId/activate', function() {
-    it('activates version', function(done) {
+  describe('PUT /:versionId/complete', function() {
+    it('mark version complete', function(done) {
+      this.virtualApp.trafficControlEnabled = true;
+
       var versionId = shortid.generate();
       supertest(this.server)
-        .put('/' + versionId + '/activate')
+        .put('/' + versionId + '/complete')
         .expect(200)
         .expect(function(res) {
           assert.ok(self.database.updateVersion.calledWith(
@@ -135,7 +140,7 @@ describe('routes/versions', function() {
       });
 
       supertest(this.server)
-        .put('/' + versionId + '/activate')
+        .put('/' + versionId + '/complete')
         .send({forceAllTrafficToNewVersion: true})
         .expect(200)
         .expect(function(res) {
@@ -158,7 +163,7 @@ describe('routes/versions', function() {
       this.organization.environments = null;
 
       supertest(this.server)
-        .put('/' + versionId + '/activate')
+        .put('/' + versionId + '/complete')
         .send({versionId: shortid.generate()})
         .expect(400)
         .expect(function(res) {
