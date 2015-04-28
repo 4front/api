@@ -56,6 +56,9 @@ describe('routes/versions', function() {
       }),
       nextVersionNum: sinon.spy(function(appId, callback) {
         callback(null, 2);
+      }),
+      updateVersion: sinon.spy(function(versionData, callback) {
+        callback(null, versionData);
       })
     };
 
@@ -84,58 +87,78 @@ describe('routes/versions', function() {
 
   describe('POST /', function() {
     it('creates new version', function(done) {
-      var versionData = {
-        appId: this.virtualApp.appId,
-        versionId: shortid.generate()
-      };
-
       supertest(this.server)
         .post('/')
-        .send(versionData)
+        .send({})
         .expect(201)
         .expect(function(res) {
           assert.ok(self.database.createVersion.called);
+
           assert.isMatch(res.body, {
-            versionId: versionData.versionId,
+            appId: self.virtualApp.appId,
             versionNum: 2,
-            name: 'v2'
+            name: 'v2',
+            active: false
           });
 
-          assert.equal(res.body.previewUrl, self.virtualApp.url + "?_version=" + versionData.versionId);
+          assert.isString(res.body.versionId);
+
+          // assert.equal(res.body.previewUrl, self.virtualApp.url + "?_version=" + versionData.versionId);
+        })
+        .end(done);
+    });
+  });
+
+  describe('PUT /:versionId/activate', function() {
+    it('activates version', function(done) {
+      var versionId = shortid.generate();
+      supertest(this.server)
+        .put('/' + versionId + '/activate')
+        .expect(200)
+        .expect(function(res) {
+          assert.ok(self.database.updateVersion.calledWith(
+            sinon.match({
+              appId: self.virtualApp.appId,
+              versionId: versionId
+            })));
+
+          assert.equal(res.body.previewUrl, self.virtualApp.url + '?_version=' + versionId);
         })
         .end(done);
     });
 
     it('direct all traffic to new version', function(done) {
-      var versionData = {
-        appId: this.virtualApp.appId,
-        versionId: shortid.generate(),
-        forceAllTrafficToNewVersion: true
-      };
+      var versionId = shortid.generate();
 
       this.database.updateTrafficRules = sinon.spy(function(appId, env, rules, callback) {
         callback(null, null);
       });
 
       supertest(this.server)
-        .post('/')
-        .send(versionData)
-        .expect(201)
+        .put('/' + versionId + '/activate')
+        .send({forceAllTrafficToNewVersion: true})
+        .expect(200)
         .expect(function(res) {
-          assert.ok(self.database.createVersion.called);
+          assert.ok(self.database.updateVersion.called);
           assert.isTrue(self.database.updateTrafficRules.calledWith(
             self.virtualApp.appId,
             self.organization.environments[0],
-            [{versionId: versionData.versionId, rule:'*'}]));
+            [{versionId: versionId, rule:'*'}]));
+
+          assert.ok(self.virtualAppRegistry.flushApp.calledWith(
+            sinon.match({appId: self.virtualApp.appId})));
+
+          assert.equal(res.body.previewUrl, self.virtualApp.url);
         })
         .end(done);
     });
 
     it('no environments configured', function(done) {
+      var versionId = shortid.generate();
       this.organization.environments = null;
 
       supertest(this.server)
-        .post('/')
+        .put('/' + versionId + '/activate')
         .send({versionId: shortid.generate()})
         .expect(400)
         .expect(function(res) {
