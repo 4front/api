@@ -25,7 +25,8 @@ describe('routes/apps', function() {
     };
 
     this.organization = {
-      orgId: shortid.generate()
+      orgId: shortid.generate(),
+      environments: ['test', 'production']
     };
 
     this.orgMember = {
@@ -94,9 +95,35 @@ describe('routes/apps', function() {
     };
 
     // Register middleware for handling the appId parameter
-    this.server.use(appsRoute(this.options));
+    this.server.use(appsRoute());
 
     this.server.use(helper.errorHandler);
+  });
+
+  describe('GET /:appId', function() {
+    it('omits env variables', function(done) {
+      var appData = {
+        appId: shortid.generate(),
+        name: 'appname',
+        env: {
+          production: {
+            key: {
+              value: 'foo'
+            }
+          }
+        }
+      };
+
+      this.appRegistry.push(appData);
+
+      supertest(this.server)
+        .get('/' + appData.appId)
+        .expect(200)
+        .expect(function(res) {
+          _.isUndefined(res.body.env);
+        })
+        .end(done);
+    });
   });
 
   describe('HEAD /:appName', function() {
@@ -190,5 +217,91 @@ describe('routes/apps', function() {
         assert.ok(self.database.updateTrafficRules.calledWith(appData.appId, environment));
       })
       .end(done);
+  });
+
+  describe('PUT /:appId/env/:env/:key', function() {
+    beforeEach(function() {
+      self = this;
+
+      this.database.setEnvironmentVariable = sinon.spy(function(options, callback) {
+        callback(null);
+      });
+
+      this.appData = {
+        appId: shortid.generate()
+      };
+
+      this.appRegistry.push(this.appData);
+    });
+
+    it('set value for _default virtualEnv', function(done) {
+      var key = 'SOME_SETTING';
+      var value = 'config_value';
+
+      supertest(this.server)
+        .put('/' + this.appData.appId + '/env/' + key)
+        .send({value: value})
+        .expect(200)
+        .expect(function(res) {
+          self.database.setEnvironmentVariable.calledWith(sinon.match({
+            appId: self.appData.appId,
+            virtualEnv: '_default',
+            value: value,
+            key: key
+          }));
+        })
+        .end(done);
+    });
+
+    it('sets value for specified environment', function(done) {
+      var key = 'SOME_SETTING';
+      var value = 'config_value';
+
+      supertest(this.server)
+        .put('/' + this.appData.appId + '/env/production/' + key)
+        .send({value: value})
+        .expect(200)
+        .expect(function(res) {
+          self.database.setEnvironmentVariable.calledWith(sinon.match({
+            virtualEnv: 'production',
+            value: value,
+            key: key
+          }));
+        })
+        .end(done);
+    });
+
+    it('returns 400 error if environment not valid', function(done) {
+      var key = 'SOME_SETTING';
+      var value = 'config_value';
+
+      supertest(this.server)
+        .put('/' + this.appData.appId + '/env/invalid/' + key)
+        .send({value: value})
+        .expect(400)
+        .expect(function(res) {
+          assert.equal(res.body.code, 'invalidVirtualEnv');
+        })
+        .end(done);
+    });
+
+    it('returns 400 error if value missing', function(done) {
+      var key = 'SOME_SETTING';
+      var value = 'config_value';
+
+      supertest(this.server)
+        .put('/' + this.appData.appId + '/env/test/' + key)
+        .send({})
+        .expect(400)
+        .end(done);
+    });
+  });
+
+  it('deletes env variable', function(done) {
+    done();
+  });
+
+  it('lists env variables', function(done) {
+    done();
   });
 });
