@@ -5,6 +5,7 @@ var assert = require('assert');
 var sinon = require('sinon');
 var fs = require('fs');
 var path = require('path');
+var through = require('through2');
 var _ = require('lodash');
 var sbuff = require('simple-bufferstream');
 var memoryCache = require('memory-cache-stream');
@@ -20,15 +21,11 @@ describe('routes/dev', function() {
   beforeEach(function() {
     self = this;
 
-    var memoryCache = memoryCache();
-
     this.server = express();
     this.server.settings.cache = this.cache = {
-      setex: sinon.spy(function(key, ttl, value) {
-        memoryCache.setex(key, ttl, value);
-      }),
+      setex: sinon.spy(function(key, ttl, value) {}),
       writeStream: sinon.spy(function(key, ttl) {
-        return memoryCache.writeStream(key, ttl);
+        return through();
       })
     };
 
@@ -91,7 +88,7 @@ describe('routes/dev', function() {
 
           // Assert that both the file contents and the lastModified time
           // are written to the cache.
-          assert.ok(self.cache.setex.calledWith(cacheKey, sinon.match.number, fileContents));
+          assert.ok(self.cache.writeStream.calledWith(cacheKey, sinon.match.number));
           assert.ok(self.cache.setex.calledWith(cacheKey + '/mtime', sinon.match.number, lastModified.toString()));
           done();
         });
@@ -118,12 +115,6 @@ describe('routes/dev', function() {
 
           assert.ok(self.cache.setex.calledWith(cacheKey, sinon.match.number, JSON.stringify(manifest)));
           done();
-
-          // self.server.settings.cache.get(cacheKey, function(err, contents) {
-          //   assert.deepEqual(JSON.parse(contents), manifest);
-          //
-          //   done();
-          // });
         });
     });
   });

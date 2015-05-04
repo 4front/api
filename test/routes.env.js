@@ -143,7 +143,8 @@ describe('routes.env', function() {
   });
 
   describe('GET /env', function() {
-    before(function() {
+    beforeEach(function() {
+      self = this;
       this.virtualApp.env = {
         _global: {
           KEY1: 'value1'
@@ -157,14 +158,25 @@ describe('routes.env', function() {
       };
     });
 
-    // it('lists env variables', function(done) {
-    //   supertest(this.server)
-    //     .get('/env')
-    //     .expect(200)
-    //     .expect(function(res) {
-    //       assert.deepEqual(res.body, self.virtualApp.env);
-    //     })
-    //     .end(done);
-    // });
+    it('lists all env variables', function(done) {
+      supertest(this.server)
+        .get('/env')
+        .expect(200)
+        .expect(function(res) {
+          assert.deepEqual(res.body, self.virtualApp.env);
+          assert.equal(res.body.test.KEY2, 'test-value');
+        })
+        .end(done);
+    });
+
+    it('lists env specific variables', function(done) {
+      supertest(this.server)
+        .get('/env/test')
+        .expect(200)
+        .expect(function(res) {
+          assert.deepEqual(res.body, self.virtualApp.env.test);
+        })
+        .end(done);
+    });
   });
 });
