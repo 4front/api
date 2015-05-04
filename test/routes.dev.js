@@ -19,8 +19,18 @@ describe('routes/dev', function() {
 
   beforeEach(function() {
     self = this;
+
+    var memoryCache = memoryCache();
+
     this.server = express();
-    this.server.settings.cache = memoryCache();
+    this.server.settings.cache = this.cache = {
+      setex: sinon.spy(function(key, ttl, value) {
+        memoryCache.setex(key, ttl, value);
+      }),
+      writeStream: sinon.spy(function(key, ttl) {
+        return memoryCache.writeStream(key, ttl);
+      })
+    };
 
     this.server.settings.virtualAppRegistry = {
       getById: function(appId, opts, callback) {
@@ -70,17 +80,20 @@ describe('routes/dev', function() {
     it('upload a file to the sandbox', function(done) {
 
       var fileContents = "<html>blog</html>";
+      var lastModified = new Date().getTime();
       supertest(this.server)
         .post('/' + self.virtualApp.appId + '/upload/pages/blog.html')
+        .set('Last-Modified', lastModified.toString())
         .send(fileContents)
         .expect(201)
         .end(function(err) {
           var cacheKey = self.user.userId + '/' + self.virtualApp.appId + '/pages/blog.html';
 
-          self.server.settings.cache.get(cacheKey, function(err, contents) {
-            assert.equal(fileContents, contents.toString());
-            done();
-          });
+          // Assert that both the file contents and the lastModified time
+          // are written to the cache.
+          assert.ok(self.cache.setex.calledWith(cacheKey, sinon.match.number, fileContents));
+          assert.ok(self.cache.setex.calledWith(cacheKey + '/mtime', sinon.match.number, lastModified.toString()));
+          done();
         });
     });
   });
@@ -102,11 +115,15 @@ describe('routes/dev', function() {
         .expect(201)
         .end(function(res) {
           var cacheKey = self.user.userId + '/' + self.virtualApp.appId + '/_manifest';
-          self.server.settings.cache.get(cacheKey, function(err, contents) {
-            assert.deepEqual(JSON.parse(contents), manifest);
 
-            done();
-          });
+          assert.ok(self.cache.setex.calledWith(cacheKey, sinon.match.number, JSON.stringify(manifest)));
+          done();
+
+          // self.server.settings.cache.get(cacheKey, function(err, contents) {
+          //   assert.deepEqual(JSON.parse(contents), manifest);
+          //
+          //   done();
+          // });
         });
     });
   });
