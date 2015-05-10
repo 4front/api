@@ -101,33 +101,34 @@ describe('routes/profile', function() {
 
       this.username = 'testuser';
       this.password = 'password';
+      this.identityProvider = 'ActiveDirectory';
     });
 
     it('successfully logs in', function(done) {
-      this.server.settings.login = sinon.spy(function(username, password, callback) {
+      this.server.settings.login = sinon.spy(function(username, password, providerName, callback) {
         callback(null, {userId: '123'});
       });
 
       debug('running login test');
       supertest(this.server)
         .post('/login')
-        .send({username: this.username, password: this.password})
+        .send({username: this.username, password: this.password, identityProvider: this.identityProvider})
         .expect(200)
         .expect(function (res) {
           assert.isTrue(self.server.settings.login.calledWith(
-            self.username, self.password));
+            self.username, self.password, self.identityProvider));
         })
         .end(done);
     });
 
     it('login failure', function(done) {
-      this.server.settings.login = sinon.spy(function(username, password, callback) {
+      this.server.settings.login = sinon.spy(function(username, password, identityProvider, callback) {
         callback(null, null);
       });
 
       supertest(this.server)
         .post('/login')
-        .send({username: this.username, password: this.password})
+        .send({username: this.username, password: this.password, identityProvider: this.identityProvider})
         .expect(401)
         .expect(function (res) {
           assert.isTrue(self.server.settings.login.called);
