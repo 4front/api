@@ -89,8 +89,8 @@ describe('routes/apps', function() {
       })
     };
 
-    this.server.settings.deployments = this.deployments = {
-      deleteAllVersions: sinon.spy(function(appId, callback) {
+    this.server.settings.deployer = this.deployer = {
+      deleteAllVersions: sinon.spy(function(appId, context, callback) {
         callback();
       })
     };
@@ -196,7 +196,7 @@ describe('routes/apps', function() {
       .expect(204)
       .expect(function(res) {
         assert.ok(self.database.deleteApplication.calledWith(appData.appId));
-        assert.ok(self.deployments.deleteAllVersions.called);
+        assert.ok(self.deployer.deleteAllVersions.called);
         assert.ok(self.virtualAppRegistry.flushApp.called);
       })
       .end(done);

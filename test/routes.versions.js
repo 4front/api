@@ -48,20 +48,8 @@ describe('routes/versions', function() {
     this.orgId = shortid.generate();
 
     this.server.settings.database = this.database = {
-      createVersion: sinon.spy(function(data, callback) {
-        callback(null, _.extend(data, {complete: false}));
-      }),
-      deleteVersion: sinon.spy(function(appId, callback) {
-        callback(null);
-      }),
-      nextVersionNum: sinon.spy(function(appId, callback) {
-        callback(null, 2);
-      }),
       updateVersion: sinon.spy(function(versionData, callback) {
         callback(null, versionData);
-      }),
-      updateTrafficRules: sinon.spy(function(appId, environment, trafficRules, callback) {
-        callback(null);
       })
     };
 
@@ -76,8 +64,17 @@ describe('routes/versions', function() {
       })
     };
 
-    this.server.settings.deployments = this.deployments = {
-      deleteAllVersions: sinon.spy(function(appId, callback) {
+    this.server.settings.deployer = this.deployer = {
+      createVersion: sinon.spy(function(versionData, context, callback) {
+        callback(null, _.extend(versionData, {versionId: shortid.generate(), complete: false}));
+      }),
+      markVersionComplete: sinon.spy(function(versionId, context, options, callback) {
+        callback(null, {versionId: versionId, complete: true});
+      }),
+      deployFile: sinon.spy(function(file, versionId, context, callback) {
+        callback();
+      }),
+      deleteVersion: sinon.spy(function(versionId, context, callback) {
         callback();
       })
     };
@@ -92,21 +89,12 @@ describe('routes/versions', function() {
     it('creates new version', function(done) {
       supertest(this.server)
         .post('/')
-        .send({})
+        .send({name: 'v2'})
         .expect(201)
         .expect(function(res) {
-          assert.ok(self.database.createVersion.called);
-
-          assert.isMatch(res.body, {
-            appId: self.virtualApp.appId,
-            versionNum: 2,
+          assert.ok(self.deployer.createVersion.calledWith(sinon.match({
             name: 'v2',
-            complete: false
-          });
-
-          assert.isString(res.body.versionId);
-
-          // assert.equal(res.body.previewUrl, self.virtualApp.url + "?_version=" + versionData.versionId);
+          })));
         })
         .end(done);
     });
@@ -121,53 +109,7 @@ describe('routes/versions', function() {
         .put('/' + versionId + '/complete')
         .expect(200)
         .expect(function(res) {
-          assert.ok(self.database.updateVersion.calledWith(
-            sinon.match({
-              appId: self.virtualApp.appId,
-              versionId: versionId
-            })));
-
-          assert.equal(res.body.previewUrl, self.virtualApp.url + '?_version=' + versionId);
-        })
-        .end(done);
-    });
-
-    it('direct all traffic to new version', function(done) {
-      var versionId = shortid.generate();
-
-      this.database.updateTrafficRules = sinon.spy(function(appId, env, rules, callback) {
-        callback(null, null);
-      });
-
-      supertest(this.server)
-        .put('/' + versionId + '/complete')
-        .send({forceAllTrafficToNewVersion: true})
-        .expect(200)
-        .expect(function(res) {
-          assert.ok(self.database.updateVersion.called);
-          assert.isTrue(self.database.updateTrafficRules.calledWith(
-            self.virtualApp.appId,
-            self.organization.environments[0],
-            [{versionId: versionId, rule:'*'}]));
-
-          assert.ok(self.virtualAppRegistry.flushApp.calledWith(
-            sinon.match({appId: self.virtualApp.appId})));
-
-          assert.equal(res.body.previewUrl, self.virtualApp.url);
-        })
-        .end(done);
-    });
-
-    it('no environments configured', function(done) {
-      var versionId = shortid.generate();
-      this.organization.environments = null;
-
-      supertest(this.server)
-        .put('/' + versionId + '/complete')
-        .send({versionId: shortid.generate()})
-        .expect(400)
-        .expect(function(res) {
-          assert.equal(res.body.code, 'noEnvironmentsExist');
+          assert.ok(self.deployer.markVersionComplete.calledWith(versionId));
         })
         .end(done);
     });
@@ -273,28 +215,11 @@ describe('routes/versions', function() {
     it('deletes version', function(done) {
       var versionId = shortid.generate();
 
-      _.extend(this.database, {
-        getVersion: sinon.spy(function(appId, versionId, callback) {
-          callback(null, {versionId: versionId})
-        }),
-        deleteVersion: sinon.spy(function(appId, versionId, callback) {
-          callback(null, null);
-        })
-      });
-
-      this.server.settings.deployments = {
-        deleteVersion: sinon.spy(function(appId, versionId, cb) {
-          cb(null);
-        })
-      };
-
       supertest(this.server)
         .delete('/' + versionId)
         .expect(204)
         .expect(function(res) {
-          assert.isTrue(self.database.getVersion.calledWith(self.virtualApp.appId, versionId));
-          assert.isTrue(self.database.deleteVersion.calledWith(self.virtualApp.appId, versionId));
-          assert.isTrue(self.server.settings.deployments.deleteVersion.calledWith(self.virtualApp.appId, versionId));
+          assert.isTrue(self.deployer.deleteVersion.calledWith(versionId));
         })
         .end(done);
     });
@@ -303,25 +228,21 @@ describe('routes/versions', function() {
   describe('POST /:versionId/deploy', function() {
     it('deploys file', function(done) {
       var versionId = shortid.generate();
-
-      this.deployments.deployFile = sinon.spy(function(appId, versionId, fileInfo, callback) {
-        callback(null);
-      });
-
       var testFile = path.resolve(__dirname, './fixtures/lorum-ipsum.html');
-
       var fileSize = fs.statSync(testFile).size;
-      debugger;
+
       supertest(this.server)
         .post('/' + versionId + "/deploy/html/lorum-ipsum.html")
         .set('Content-Length', fileSize)
         .send(fs.readFileSync(testFile).toString())
         .expect(201)
         .expect(function(res) {
-          assert.isTrue(self.deployments.deployFile.calledWith(self.virtualApp.appId, versionId));
-          assert.equal(self.deployments.deployFile.args[0][2].size, fileSize);
-          assert.equal(self.deployments.deployFile.args[0][2].path, "html/lorum-ipsum.html");
-          assert.equal(res.body.key, 'html/lorum-ipsum.html');
+          assert.isTrue(self.deployer.deployFile.calledWith(sinon.match({
+            path: 'html/lorum-ipsum.html',
+            size: fileSize
+          }), versionId));
+
+          assert.equal(res.body.filePath, 'html/lorum-ipsum.html');
         })
         .end(done);
     });
