@@ -77,10 +77,11 @@ describe('routes/dev', function() {
     it('upload a file to the sandbox', function(done) {
 
       var fileContents = "<html>blog</html>";
-      var lastModified = new Date().getTime();
+      var hash = 'asdfasdfasdfasdf';
+
       supertest(this.server)
         .post('/' + self.virtualApp.appId + '/upload/pages/blog.html')
-        .set('Last-Modified', lastModified.toString())
+        .set('File-Hash', hash)
         .send(fileContents)
         .expect(201)
         .end(function(err) {
@@ -89,7 +90,7 @@ describe('routes/dev', function() {
           // Assert that both the file contents and the lastModified time
           // are written to the cache.
           assert.ok(self.cache.writeStream.calledWith(cacheKey, sinon.match.number));
-          assert.ok(self.cache.setex.calledWith(cacheKey + '/mtime', sinon.match.number, lastModified.toString()));
+          assert.ok(self.cache.setex.calledWith(cacheKey + '/hash', sinon.match.number, hash));
           done();
         });
     });

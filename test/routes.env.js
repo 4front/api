@@ -50,13 +50,13 @@ describe('routes.env', function() {
     this.server.use(helper.errorHandler);
   });
 
-  describe('PUT /env/:env/:key', function() {
+  describe('PUT /:env/:key', function() {
     it('set value for _default virtualEnv', function(done) {
       var key = 'SOME_SETTING';
       var value = 'config_value';
 
       supertest(this.server)
-        .put('/env/' + key)
+        .put('/' + key)
         .send({value: value})
         .expect(200)
         .expect(function(res) {
@@ -77,7 +77,7 @@ describe('routes.env', function() {
       var value = 'config_value';
 
       supertest(this.server)
-        .put('/env/production/' + key)
+        .put('/production/' + key)
         .send({value: value})
         .expect(200)
         .expect(function(res) {
@@ -90,14 +90,14 @@ describe('routes.env', function() {
         .end(done);
     });
 
-    it('returns 400 error if environment not valid', function(done) {
+    it('returns 404 error if environment not valid', function(done) {
       var key = 'SOME_SETTING';
       var value = 'config_value';
 
       supertest(this.server)
-        .put('/env/invalid/' + key)
+        .put('/invalid/' + key)
         .send({value: value})
-        .expect(400)
+        .expect(404)
         .expect(function(res) {
           assert.equal(res.body.code, 'invalidVirtualEnv');
         })
@@ -108,19 +108,19 @@ describe('routes.env', function() {
       var key = 'SOME_SETTING';
 
       supertest(this.server)
-        .put('/env/test/' + key)
+        .put('/test/' + key)
         .send({})
         .expect(400)
         .end(done);
     });
   });
 
-  describe('DELETE /env/:env/:key', function() {
+  describe('DELETE /:env/:key', function() {
     it('deletes env variable', function(done) {
       var key = 'KEY';
 
       supertest(this.server)
-        .delete('/env/test/' + key)
+        .delete('/test/' + key)
         .expect(204)
         .expect(function(res) {
           assert.ok(self.database.deleteEnvironmentVariable.calledWith(self.appId, 'test', key));
@@ -133,7 +133,7 @@ describe('routes.env', function() {
       var key = 'KEY';
 
       supertest(this.server)
-        .delete('/env/' + key)
+        .delete('/' + key)
         .expect(204)
         .expect(function(res) {
           assert.ok(self.database.deleteEnvironmentVariable.calledWith(self.appId, '_global', key));
@@ -160,7 +160,7 @@ describe('routes.env', function() {
 
     it('lists all env variables', function(done) {
       supertest(this.server)
-        .get('/env')
+        .get('/')
         .expect(200)
         .expect(function(res) {
           assert.deepEqual(res.body, self.virtualApp.env);
@@ -171,7 +171,7 @@ describe('routes.env', function() {
 
     it('lists env specific variables', function(done) {
       supertest(this.server)
-        .get('/env/test')
+        .get('/test')
         .expect(200)
         .expect(function(res) {
           assert.deepEqual(res.body, self.virtualApp.env.test);
