@@ -159,7 +159,7 @@ describe('routes/versions', function() {
       });
 
       _.extend(this.database, {
-        listVersions: sinon.spy(function(appId, limit, callback) {
+        listVersions: sinon.spy(function(appId, options, callback) {
           callback(null, dbVersions);
         }),
         getUserInfo: sinon.spy(function(userIds, callback) {
