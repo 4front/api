@@ -45,6 +45,7 @@ describe('routes/apps', function() {
     });
 
     this.appRegistry = [];
+    this.domainZoneId = '123';
 
     this.server.settings.database = this.database = {
       createApplication: sinon.spy(function(data, callback) {
@@ -67,7 +68,22 @@ describe('routes/apps', function() {
       },
       getOrgMember: function(orgId, userId, callback) {
         callback(null, self.orgMember);
-      }
+      },
+      getDomain: sinon.spy(function(domain, callback) {
+        callback(null, {domain: domain, zone: self.domainZoneId});
+      }),
+      updateDomainZone: sinon.spy(function(domain, zoneId, callback) {
+        callback();
+      })
+    };
+
+    this.server.settings.domains = this.domains = {
+      register: sinon.spy(function(domainName, callback) {
+        callback(null, self.domainZoneId);
+      }),
+      unregister: sinon.spy(function(domainName, zoneId, callback) {
+        callback(null);
+      })
     };
 
     this.server.settings.virtualAppRegistry = this.virtualAppRegistry = {
@@ -188,7 +204,12 @@ describe('routes/apps', function() {
   });
 
   it('DELETE /:appId', function(done) {
-    var appData = {appId: shortid.generate(), orgId: shortid.generate()};
+    var appData = {
+      appId: shortid.generate(),
+      orgId: shortid.generate(),
+      domains: ['one.domain.com', 'two.domain.com']
+    };
+
     this.appRegistry.push(appData);
 
     supertest(this.server)
@@ -197,6 +218,9 @@ describe('routes/apps', function() {
       .expect(function(res) {
         assert.ok(self.database.deleteApplication.calledWith(appData.appId));
         assert.ok(self.deployer.deleteAllVersions.called);
+        
+        assert.ok(self.domains.unregister.calledWith('one.domain.com'));
+        assert.ok(self.domains.unregister.calledWith('two.domain.com'));
         assert.ok(self.virtualAppRegistry.flushApp.called);
       })
       .end(done);
@@ -216,6 +240,35 @@ describe('routes/apps', function() {
       .expect(function(res) {
         assert.deepEqual(res.body, rules);
         assert.ok(self.database.updateTrafficRules.calledWith(appData.appId, environment));
+      })
+      .end(done);
+  });
+
+  it('POST /:appId/domains', function(done) {
+    var appData = {
+      appId: shortid.generate(),
+      orgId: shortid.generate(),
+      domains: ['one.domain.com', 'two.domain.com']
+    };
+
+    this.appRegistry.push(appData);
+
+    supertest(this.server)
+      .post('/' + appData.appId + '/domains')
+      .send(['two.domain.com', 'three.domain.com'])
+      .expect(200)
+      .expect(function(res) {
+        assert.ok(self.domains.register.calledOnce);
+        assert.ok(self.domains.register.calledWith('three.domain.com'));
+        assert.ok(self.database.updateDomainZone.calledWith('three.domain.com', self.domainZoneId));
+
+        assert.ok(self.domains.unregister.calledOnce);
+        assert.ok(self.database.getDomain.calledWith('one.domain.com'));
+        assert.ok(self.domains.unregister.calledWith('one.domain.com', self.domainZoneId));
+
+        assert.ok(self.virtualAppRegistry.flushApp.called);
+
+        assert.deepEqual(res.body, ['two.domain.com', 'three.domain.com']);
       })
       .end(done);
   });
