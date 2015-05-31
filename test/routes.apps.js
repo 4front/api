@@ -72,7 +72,13 @@ describe('routes/apps', function() {
       getDomain: sinon.spy(function(domain, callback) {
         callback(null, {domain: domain, zone: self.domainZoneId});
       }),
-      updateDomainZone: sinon.spy(function(domain, zoneId, callback) {
+      createDomain: sinon.spy(function(appId, domain, callback) {
+        callback(null, {appId: appId, domain: domain});
+      }),
+      updateDomain: sinon.spy(function(appId, domain, zoneId, callback) {
+        callback();
+      }),
+      deleteDomain: sinon.spy(function(appId, domain, callback) {
         callback();
       })
     };
@@ -218,7 +224,7 @@ describe('routes/apps', function() {
       .expect(function(res) {
         assert.ok(self.database.deleteApplication.calledWith(appData.appId));
         assert.ok(self.deployer.deleteAllVersions.called);
-        
+
         assert.ok(self.domains.unregister.calledWith('one.domain.com'));
         assert.ok(self.domains.unregister.calledWith('two.domain.com'));
         assert.ok(self.virtualAppRegistry.flushApp.called);
@@ -260,11 +266,13 @@ describe('routes/apps', function() {
       .expect(function(res) {
         assert.ok(self.domains.register.calledOnce);
         assert.ok(self.domains.register.calledWith('three.domain.com'));
-        assert.ok(self.database.updateDomainZone.calledWith('three.domain.com', self.domainZoneId));
+        assert.ok(self.database.createDomain.calledWith(appData.appId, 'three.domain.com'));
+        assert.ok(self.database.updateDomain.calledWith(appData.appId, 'three.domain.com', self.domainZoneId));
 
         assert.ok(self.domains.unregister.calledOnce);
         assert.ok(self.database.getDomain.calledWith('one.domain.com'));
         assert.ok(self.domains.unregister.calledWith('one.domain.com', self.domainZoneId));
+        assert.ok(self.database.deleteDomain.calledWith(appData.appId, 'one.domain.com'));
 
         assert.ok(self.virtualAppRegistry.flushApp.called);
 
