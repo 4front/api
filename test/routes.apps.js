@@ -69,9 +69,6 @@ describe('routes/apps', function() {
       getOrgMember: function(orgId, userId, callback) {
         callback(null, self.orgMember);
       },
-      getDomain: sinon.spy(function(domain, callback) {
-        callback(null, {domain: domain, zone: self.domainZoneId});
-      }),
       createDomain: sinon.spy(function(appId, domain, callback) {
         callback(null, {appId: appId, domain: domain});
       }),
@@ -216,6 +213,14 @@ describe('routes/apps', function() {
       domains: ['one.domain.com', 'two.domain.com']
     };
 
+    this.database.getDomain = sinon.spy(function(domain, callback) {
+      callback(null, {
+        appId: appData.appId,
+        domain: domain,
+        zone: self.domainZoneId
+      });
+    });
+
     this.appRegistry.push(appData);
 
     supertest(this.server)
@@ -250,34 +255,131 @@ describe('routes/apps', function() {
       .end(done);
   });
 
-  it('POST /:appId/domains', function(done) {
-    var appData = {
-      appId: shortid.generate(),
-      orgId: shortid.generate(),
-      domains: ['one.domain.com', 'two.domain.com']
-    };
+  // Create new custom domain
+  describe('PUT /:appId/domain', function() {
+    it('creates new domain', function(done) {
+      var appData = {
+        appId: shortid.generate(),
+        orgId: shortid.generate()
+      };
 
-    this.appRegistry.push(appData);
+      this.database.getDomain = sinon.spy(function(domain, callback) {
+        callback(null, {
+          appId: appData.appId,
+          domain: domain,
+          zone: self.domainZoneId
+        });
+      });
 
-    supertest(this.server)
-      .post('/' + appData.appId + '/domains')
-      .send(['two.domain.com', 'three.domain.com'])
-      .expect(200)
-      .expect(function(res) {
-        assert.ok(self.domains.register.calledOnce);
-        assert.ok(self.domains.register.calledWith('three.domain.com'));
-        assert.ok(self.database.createDomain.calledWith(appData.appId, 'three.domain.com'));
-        assert.ok(self.database.updateDomain.calledWith(appData.appId, 'three.domain.com', self.domainZoneId));
+      this.appRegistry.push(appData);
 
-        assert.ok(self.domains.unregister.calledOnce);
-        assert.ok(self.database.getDomain.calledWith('one.domain.com'));
-        assert.ok(self.domains.unregister.calledWith('one.domain.com', self.domainZoneId));
-        assert.ok(self.database.deleteDomain.calledWith(appData.appId, 'one.domain.com'));
+      var domainName = 'my.domain.com';
+      supertest(this.server)
+        .put('/' + appData.appId + '/domain')
+        .send({domainName: domainName})
+        .expect(200)
+        .expect(function(res) {
+          assert.ok(self.domains.register.calledWith(domainName));
+          assert.ok(self.database.createDomain.calledWith(appData.appId, domainName));
+          assert.ok(self.database.updateDomain.calledWith(appData.appId, domainName, self.domainZoneId));
+        })
+        .end(done);
+    });
 
-        assert.ok(self.virtualAppRegistry.flushApp.called);
+    it('domain name invalid', function(done) {
+      var appData = {
+        appId: shortid.generate(),
+        orgId: shortid.generate()
+      };
 
-        assert.deepEqual(res.body, ['two.domain.com', 'three.domain.com']);
-      })
-      .end(done);
+      this.appRegistry.push(appData);
+
+      supertest(this.server)
+        .put('/' + appData.appId + '/domain')
+        .send({domainName: 'invaliddomain??'})
+        .expect(400)
+        .expect(function(res) {
+          assert.equal(res.body.code, 'invalidDomainName');
+        })
+        .end(done);
+    });
+  });
+
+  describe('DELETE /:appId/domain', function() {
+    it('deletes a domain', function(done) {
+      var virtualApp = {
+        appId: shortid.generate(),
+        orgId: shortid.generate()
+      };
+
+      this.appRegistry.push(virtualApp);
+
+      var domainName = 'my.domain.com';
+
+      this.database.getDomain = sinon.spy(function(domain, callback) {
+        callback(null, {
+          appId: virtualApp.appId,
+          domain: domainName,
+          zone: self.domainZoneId
+        });
+      });
+
+      supertest(this.server)
+        .delete('/' + virtualApp.appId + '/domain')
+        .send({domainName: domainName})
+        .expect(200)
+        .expect(function(res) {
+          assert.ok(self.database.getDomain.calledWith(domainName));
+          assert.ok(self.domains.unregister.calledWith(domainName, self.domainZoneId));
+          assert.ok(self.database.deleteDomain.calledWith(virtualApp.appId, domainName));
+        })
+        .end(done);
+    });
+
+    it('delete domain belonging to different app', function(done) {
+      var virtualApp = {
+        appId: shortid.generate(),
+        orgId: shortid.generate()
+      };
+
+      this.appRegistry.push(virtualApp);
+
+      var domainName = 'my.domain.com';
+
+      this.database.getDomain = sinon.spy(function(domain, callback) {
+        callback(null, {
+          appId: shortid.generate(), // return a different appId
+          domain: domainName,
+          zone: self.domainZoneId
+        });
+      });
+
+      supertest(this.server)
+        .delete('/' + virtualApp.appId + '/domain')
+        .send({domainName: domainName})
+        .expect(403)
+        .end(done);
+    });
+
+    it('delete a missing domain', function(done) {
+      var virtualApp = {
+        appId: shortid.generate(),
+        orgId: shortid.generate()
+      };
+
+      this.appRegistry.push(virtualApp);
+
+      var domainName = 'my.domain.com';
+
+      this.database.getDomain = sinon.spy(function(domain, callback) {
+        callback(null, null);
+      });
+
+      supertest(this.server)
+        .delete('/' + virtualApp.appId + '/domain')
+        .send({domainName: domainName})
+        .expect(404)
+        .end(done);
+    });
   });
 });
