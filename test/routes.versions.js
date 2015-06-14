@@ -68,8 +68,8 @@ describe('routes/versions', function() {
       createVersion: sinon.spy(function(versionData, context, callback) {
         callback(null, _.extend(versionData, {versionId: shortid.generate(), complete: false}));
       }),
-      markVersionComplete: sinon.spy(function(versionId, context, options, callback) {
-        callback(null, {versionId: versionId, complete: true});
+      updateVersionStatus: sinon.spy(function(versionData, context, options, callback) {
+        callback(null, {versionId: versionData.versionId, complete: true});
       }),
       deployFile: sinon.spy(function(file, versionId, context, callback) {
         callback();
@@ -109,7 +109,9 @@ describe('routes/versions', function() {
         .put('/' + versionId + '/complete')
         .expect(200)
         .expect(function(res) {
-          assert.ok(self.deployer.markVersionComplete.calledWith(versionId));
+          assert.ok(self.deployer.updateVersionStatus.calledWith({
+            versionId: versionId, status: 'complete'
+          }));
         })
         .end(done);
     });
