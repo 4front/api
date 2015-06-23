@@ -83,6 +83,32 @@ describe('validateApp', function() {
       .end(done);
   });
 
+  it('returns 400 when app name has upper case letters', function(done) {
+    this.appData.name = 'InvalidApp';
+
+    supertest(this.server)
+      .post('/')
+      .send(this.appData)
+      .expect(400)
+      .expect(function(res) {
+        assert.equal(res.body.code, "invalidAppName");
+      })
+      .end(done);
+  });
+
+  it('returns 400 when app name contains dots', function(done) {
+    this.appData.name = 'invalid.app';
+    
+    supertest(this.server)
+      .post('/')
+      .send(this.appData)
+      .expect(400)
+      .expect(function(res) {
+        assert.equal(res.body.code, "invalidAppName");
+      })
+      .end(done);
+  });
+
   it('returns 200 when app name is available', function(done) {
     this.appName = null;
     this.appData.name = 'valid-name';
