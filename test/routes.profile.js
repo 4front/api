@@ -9,6 +9,7 @@ var debug = require('debug')('4front-api:test');
 var profileRoute = require('../lib/routes/profile');
 var helper = require('./helper');
 
+require('simple-errors');
 require('dash-assert');
 
 describe('routes/profile', function() {
@@ -18,15 +19,24 @@ describe('routes/profile', function() {
     self = this;
     this.server = express();
 
-    this.server.settings.database = this.database = {};
-    this.server.settings.jwtTokenExpireMinutes = 20;
-    this.server.settings.jwtTokenSecret = 'asdflaksdjflaksdf';
-
     this.user = {
       userId: shortid.generate(),
-      providerUserId: shortid.generate(),
-      provider: 'ActiveDirectory'
+      username: 'bob',
+      providerUserId: shortid.generate()
     };
+
+    this.server.settings.database = this.database = {};
+    this.server.settings.membership = this.membership = {
+      login: sinon.spy(function(username, password, callback) {
+        callback(null, self.user);
+      }),
+      updateProfile: sinon.spy(function(userData, callback) {
+        callback(null, userData);
+      })
+    };
+
+    this.server.settings.jwtTokenExpireMinutes = 20;
+    this.server.settings.jwtTokenSecret = 'asdflaksdjflaksdf';
 
     this.server.use(function(req, res, next) {
       debug("setting up request");
@@ -58,7 +68,7 @@ describe('routes/profile', function() {
         .end(done);
     });
 
-    it('updates user', function(done) {
+    it('update profile', function(done) {
       this.database.updateUser = sinon.spy(function(userData, callback) {
         callback(null, userData);
       });
@@ -69,7 +79,7 @@ describe('routes/profile', function() {
         .send(userUpdates)
         .expect(200)
         .expect(function() {
-          assert.isMatch(self.database.updateUser.args[0][0], userUpdates);
+          assert.isMatch(self.membership.updateProfile.args[0][0], userUpdates);
         })
         .end(done);
     });
@@ -101,7 +111,6 @@ describe('routes/profile', function() {
 
       this.username = 'testuser';
       this.password = 'password';
-      this.identityProvider = 'ActiveDirectory';
     });
 
     it('successfully logs in', function(done) {
@@ -112,26 +121,26 @@ describe('routes/profile', function() {
       debug('running login test');
       supertest(this.server)
         .post('/login')
-        .send({username: this.username, password: this.password, identityProvider: this.identityProvider})
+        .send({username: this.username, password: this.password})
         .expect(200)
         .expect(function (res) {
-          assert.isTrue(self.server.settings.login.calledWith(
-            self.username, self.password, self.identityProvider));
+          assert.isTrue(self.server.settings.membership.login.calledWith(
+            self.username, self.password));
         })
         .end(done);
     });
 
     it('login failure', function(done) {
-      this.server.settings.login = sinon.spy(function(username, password, identityProvider, callback) {
-        callback(null, null);
+      this.server.settings.membership.login = sinon.spy(function(username, password, callback) {
+        callback(Error.create("", {code: "invalidCredentials"}));
       });
 
       supertest(this.server)
         .post('/login')
-        .send({username: this.username, password: this.password, identityProvider: this.identityProvider})
+        .send({username: this.username, password: this.password})
         .expect(401)
         .expect(function (res) {
-          assert.isTrue(self.server.settings.login.called);
+          assert.isTrue(self.server.settings.membership.login.called);
           assert.equal(res.body.code, 'invalidCredentials');
         })
         .end(done);

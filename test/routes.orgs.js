@@ -69,15 +69,18 @@ describe('routes/orgs', function() {
       createOrgMember: sinon.spy(function(member, callback) {
         callback(null, member);
       }),
-      updateUser: sinon.spy(function(user, callback) {
-        callback(null);
-      }),
-      createUser: sinon.spy(function(user, callback) {
-        callback(null, user);
-      }),
       getOrgMember: function(orgId, userId, callback) {
         callback(null, self.orgMember);
       }
+    };
+
+    this.server.settings.membership = this.membership = {
+      createUser: sinon.spy(function(userData, callback) {
+        callback(null, userData);
+      }),
+      updateProfile: sinon.spy(function(userData, callback) {
+        callback(null, userData);
+      })
     };
 
     this.server.settings.orgPlans = {
@@ -187,7 +190,7 @@ describe('routes/orgs', function() {
         .expect(201)
         .expect(function(res) {
           assert.ok(self.database.createOrgMember.called);
-          assert.isFalse(self.database.updateUser.called);
+          assert.isFalse(self.membership.updateProfile.called);
         })
         .end(done);
     });
@@ -196,13 +199,13 @@ describe('routes/orgs', function() {
       var userId = shortid.generate();
       var postData = {
         providerUserId: shortid.generate(),
-        provider: 'github',
+        provider: 'ldap',
         role: 'contributor',
         avatar: 'profile.jpg'
       };
 
-      this.database.findUser = sinon.spy(function(providerUserId, provider, callback) {
-        callback(null, {userId: userId});
+      this.membership.findUser = sinon.spy(function(providerUserId, providerName, callback) {
+        callback(null, {userId: userId, provider: providerName});
       });
 
       supertest(this.server)
@@ -210,10 +213,10 @@ describe('routes/orgs', function() {
         .send(postData)
         .expect(201)
         .expect(function(res) {
-          assert.ok(self.database.findUser.calledWith(postData.providerUserId, 'github'));
-          assert.ok(self.database.updateUser.called);
+          assert.ok(self.membership.findUser.calledWith(postData.providerUserId, 'ldap'));
+          assert.ok(self.membership.updateProfile.called);
           assert.ok(self.database.createOrgMember.called);
-          assert.isFalse(self.database.createUser.called);
+          assert.isFalse(self.membership.createUser.called);
         })
         .end(done);
     });
@@ -222,12 +225,13 @@ describe('routes/orgs', function() {
       var userId = shortid.generate();
       var postData = {
         providerUserId: shortid.generate(),
-        provider: 'github',
+        username: 'sally',
+        provider: 'ldap',
         role: 'contributor',
         avatar: 'profile.jpg'
       };
 
-      this.database.findUser = sinon.spy(function(providerUserId, provider, callback) {
+      this.membership.findUser = sinon.spy(function(providerUserId, provider, callback) {
         callback(null, null);
       });
 
@@ -236,9 +240,13 @@ describe('routes/orgs', function() {
         .send(postData)
         .expect(201)
         .expect(function(res) {
-          assert.ok(self.database.findUser.calledWith(postData.providerUserId, 'github'));
-          assert.ok(self.database.createUser.called);
-          assert.isFalse(self.database.updateUser.called);
+          assert.ok(self.membership.findUser.calledWith(
+            postData.providerUserId, 'ldap'));
+
+          assert.ok(self.membership.createUser.calledWith(sinon.match(
+            _.pick(postData, 'providerUserId', 'username', 'avatar'))));
+
+          assert.isFalse(self.membership.updateProfile.called);
           assert.ok(self.database.createOrgMember.called);
         })
         .end(done);
@@ -283,7 +291,7 @@ describe('routes/orgs', function() {
             monthlyRate: 0,
             activated: false
           });
-          assert.isMatch(self.database.updateUser.args[0][0], {usedTrialOrg: true});
+          assert.isMatch(self.membership.updateProfile.args[0][0], {usedTrialOrg: true});
         })
         .end(done);
     });
