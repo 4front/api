@@ -204,7 +204,7 @@ describe('routes/orgs', function() {
         avatar: 'profile.jpg'
       };
 
-      this.membership.findUser = sinon.spy(function(username, providerName, callback) {
+      this.membership.findUser = sinon.spy(function(query, providerName, callback) {
         callback(null, {userId: userId, provider: providerName});
       });
 
@@ -213,7 +213,7 @@ describe('routes/orgs', function() {
         .send(postData)
         .expect(201)
         .expect(function(res) {
-          assert.ok(self.membership.findUser.calledWith(postData.username, 'ldap'));
+          assert.ok(self.membership.findUser.calledWith({username: postData.username}, 'ldap'));
           assert.ok(self.membership.updateProfile.called);
           assert.ok(self.database.createOrgMember.called);
           assert.isFalse(self.membership.createUser.called);
@@ -240,7 +240,7 @@ describe('routes/orgs', function() {
         .expect(201)
         .expect(function(res) {
           assert.ok(self.membership.findUser.calledWith(
-            postData.username, 'ldap'));
+            {username: postData.username}, 'ldap'));
 
           assert.ok(self.membership.createUser.calledWith(sinon.match(
             _.pick(postData, 'username', 'avatar'))));
