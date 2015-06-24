@@ -198,13 +198,13 @@ describe('routes/orgs', function() {
     it('existing user by providerId', function(done) {
       var userId = shortid.generate();
       var postData = {
-        providerUserId: shortid.generate(),
+        username: shortid.generate(),
         provider: 'ldap',
         role: 'contributor',
         avatar: 'profile.jpg'
       };
 
-      this.membership.findUser = sinon.spy(function(providerUserId, providerName, callback) {
+      this.membership.findUser = sinon.spy(function(username, providerName, callback) {
         callback(null, {userId: userId, provider: providerName});
       });
 
@@ -213,7 +213,7 @@ describe('routes/orgs', function() {
         .send(postData)
         .expect(201)
         .expect(function(res) {
-          assert.ok(self.membership.findUser.calledWith(postData.providerUserId, 'ldap'));
+          assert.ok(self.membership.findUser.calledWith(postData.username, 'ldap'));
           assert.ok(self.membership.updateProfile.called);
           assert.ok(self.database.createOrgMember.called);
           assert.isFalse(self.membership.createUser.called);
@@ -224,14 +224,13 @@ describe('routes/orgs', function() {
     it('brand new user', function(done) {
       var userId = shortid.generate();
       var postData = {
-        providerUserId: shortid.generate(),
         username: 'sally',
         provider: 'ldap',
         role: 'contributor',
         avatar: 'profile.jpg'
       };
 
-      this.membership.findUser = sinon.spy(function(providerUserId, provider, callback) {
+      this.membership.findUser = sinon.spy(function(username, provider, callback) {
         callback(null, null);
       });
 
@@ -241,10 +240,10 @@ describe('routes/orgs', function() {
         .expect(201)
         .expect(function(res) {
           assert.ok(self.membership.findUser.calledWith(
-            postData.providerUserId, 'ldap'));
+            postData.username, 'ldap'));
 
           assert.ok(self.membership.createUser.calledWith(sinon.match(
-            _.pick(postData, 'providerUserId', 'username', 'avatar'))));
+            _.pick(postData, 'username', 'avatar'))));
 
           assert.isFalse(self.membership.updateProfile.called);
           assert.ok(self.database.createOrgMember.called);
