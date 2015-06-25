@@ -65,18 +65,20 @@ describe('routes/versions', function() {
     };
 
     this.server.settings.deployer = this.deployer = {
-      createVersion: sinon.spy(function(versionData, context, callback) {
-        callback(null, _.extend(versionData, {versionId: shortid.generate(), complete: false}));
-      }),
-      updateVersionStatus: sinon.spy(function(versionData, context, options, callback) {
-        callback(null, {versionId: versionData.versionId, complete: true});
-      }),
-      deployFile: sinon.spy(function(file, versionId, context, callback) {
+      versions: {
+        create: sinon.spy(function(versionData, context, callback) {
+          callback(null, _.extend(versionData, {versionId: shortid.generate(), complete: false}));
+        }),
+        updateStatus: sinon.spy(function(versionData, context, options, callback) {
+          callback(null, {versionId: versionData.versionId, complete: true});
+        }),
+        delete: sinon.spy(function(versionId, context, callback) {
+          callback();
+        })
+      },
+      deploy: sinon.spy(function(appId, versionId, fileInfo, callback) {
         callback();
       }),
-      deleteVersion: sinon.spy(function(versionId, context, callback) {
-        callback();
-      })
     };
 
     // Register middleware for handling the appId parameter
@@ -92,7 +94,7 @@ describe('routes/versions', function() {
         .send({name: 'v2'})
         .expect(201)
         .expect(function(res) {
-          assert.ok(self.deployer.createVersion.calledWith(sinon.match({
+          assert.ok(self.deployer.versions.create.calledWith(sinon.match({
             name: 'v2',
           })));
         })
@@ -109,7 +111,7 @@ describe('routes/versions', function() {
         .put('/' + versionId + '/complete')
         .expect(200)
         .expect(function(res) {
-          assert.ok(self.deployer.updateVersionStatus.calledWith({
+          assert.ok(self.deployer.versions.updateStatus.calledWith({
             versionId: versionId, status: 'complete'
           }));
         })
@@ -221,7 +223,7 @@ describe('routes/versions', function() {
         .delete('/' + versionId)
         .expect(204)
         .expect(function(res) {
-          assert.isTrue(self.deployer.deleteVersion.calledWith(versionId));
+          assert.isTrue(self.deployer.versions.delete.calledWith(versionId));
         })
         .end(done);
     });
@@ -239,10 +241,10 @@ describe('routes/versions', function() {
         .send(fs.readFileSync(testFile).toString())
         .expect(201)
         .expect(function(res) {
-          assert.isTrue(self.deployer.deployFile.calledWith(sinon.match({
+          assert.isTrue(self.deployer.deploy.calledWith(self.virtualApp.appId, versionId, sinon.match({
             path: 'html/lorum-ipsum.html',
             size: fileSize
-          }), versionId));
+          })));
 
           assert.equal(res.body.filePath, 'html/lorum-ipsum.html');
         })

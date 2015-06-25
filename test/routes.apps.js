@@ -109,9 +109,11 @@ describe('routes/apps', function() {
     };
 
     this.server.settings.deployer = this.deployer = {
-      deleteAllVersions: sinon.spy(function(appId, context, callback) {
-        callback();
-      })
+      versions: {
+        deleteAll: sinon.spy(function(appId, context, callback) {
+          callback();
+        })
+      }
     };
 
     // Register middleware for handling the appId parameter
@@ -228,7 +230,7 @@ describe('routes/apps', function() {
       .expect(204)
       .expect(function(res) {
         assert.ok(self.database.deleteApplication.calledWith(appData.appId));
-        assert.ok(self.deployer.deleteAllVersions.called);
+        assert.ok(self.deployer.versions.deleteAll.called);
 
         assert.ok(self.domains.unregister.calledWith('one.domain.com'));
         assert.ok(self.domains.unregister.calledWith('two.domain.com'));
