@@ -98,7 +98,7 @@ describe('validateApp', function() {
 
   it('returns 400 when app name contains dots', function(done) {
     this.appData.name = 'invalid.app';
-    
+
     supertest(this.server)
       .post('/')
       .send(this.appData)
@@ -118,5 +118,15 @@ describe('validateApp', function() {
       .send(this.appData)
       .expect(200)
       .end(done);
+  });
+
+  it('allows numbers, letters, and dashes', function(done) {
+    this.appName = null;
+    this.appData.name = 'abcd-1234';
+
+    supertest(this.server)
+      .post('/')
+      .send(this.appData)
+      .expect(200, done);
   });
 });
