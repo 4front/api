@@ -154,12 +154,22 @@ describe('routes/versions', function() {
   describe('GET /', function() {
     it('lists versions', function(done) {
       var dbVersions = _.times(3, function(i) {
-        return {
+        var version = {
           appId: self.virtualApp.appId,
           versionId: shortid.generate(),
           versionNum: i + 1,
           userId: i.toString()
         };
+
+        if (i === 0) {
+          version.status = 'initiated';
+          version.created = new Date(Date.now() - 10 * 60 * 1000).toUTCString();
+        }
+        else {
+          version.status = 'completed';
+          version.created = new Date().toUTCString();
+        }
+        return version;
       });
 
       _.extend(this.database, {
@@ -186,6 +196,13 @@ describe('routes/versions', function() {
           assert.deepEqual(_.map(res.body, 'username'), ['user3', 'user2', 'user1']);
           assert.isTrue(self.database.listVersions.calledWith(self.virtualApp.appId));
           assert.noDifferences(self.database.getUserInfo.args[0][0], _.map(dbVersions, 'userId'));
+
+          // The first version should be marked as failed.
+          assert.isTrue(self.deployer.versions.updateStatus.calledWith(sinon.match({
+            versionId: dbVersions[0].versionId,
+            status: 'failed',
+            error: 'Deployment timed out'
+          })));
         })
         .end(done);
     });
