@@ -26,7 +26,8 @@ describe('routes/dev', function() {
       setex: sinon.spy(function(key, ttl, value) {}),
       writeStream: sinon.spy(function(key, ttl) {
         return through();
-      })
+      }),
+      del: sinon.spy(function(key) {})
     };
 
     this.server.settings.virtualAppRegistry = {
@@ -75,7 +76,6 @@ describe('routes/dev', function() {
 
   describe('POST /upload', function() {
     it('upload a file to the sandbox', function(done) {
-
       var fileContents = "<html>blog</html>";
       var hash = 'asdfasdfasdfasdf';
 
@@ -93,6 +93,21 @@ describe('routes/dev', function() {
           assert.ok(self.cache.setex.calledWith(cacheKey + '/hash', sinon.match.number, hash));
           done();
         });
+    });
+  });
+
+  describe('POST /notfound', function() {
+    it('deletes from cache', function(done) {
+      supertest(this.server)
+        .post('/' + self.virtualApp.appId + '/notfound/pages/missing.html')
+        .expect(201)
+        .expect(function(res) {
+          var cacheKey = self.user.userId + '/' + self.virtualApp.appId + '/pages/missing.html';
+
+          assert.ok(self.cache.del.calledWith(cacheKey));
+          assert.ok(self.cache.del.calledWith(cacheKey + '/hash'));
+        })
+        .end(done);
     });
   });
 
