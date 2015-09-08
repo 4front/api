@@ -104,7 +104,7 @@ describe('routes/apps', function() {
       },
       flushApp: sinon.spy(function(app) {
       }),
-      add: sinon.spy(function(app){
+      add: sinon.spy(function(app) {
       })
     };
 
@@ -244,7 +244,7 @@ describe('routes/apps', function() {
     this.appRegistry.push(appData);
 
     var environment = 'production';
-    var rules = [{version:'v1', rule:'*'}];
+    var rules = [{version: 'v1', rule: '*'}];
 
     supertest(this.server)
       .post('/' + appData.appId + '/traffic-rules/' + environment)

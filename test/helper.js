@@ -26,7 +26,7 @@ module.exports.beforeEach = function() {
 module.exports.errorHandler = function(err, req, res, next) {
   res.statusCode = err.status || 500;
   if (res.statusCode === 500) {
-    console.log(err.stack);
+    console.error(err);
     res.end(err.stack);
   }
   else
