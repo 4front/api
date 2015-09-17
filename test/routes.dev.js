@@ -27,7 +27,8 @@ describe('routes/dev', function() {
       writeStream: sinon.spy(function(key, ttl) {
         return through();
       }),
-      del: sinon.spy(function(key) {})
+      del: sinon.spy(function(key) {}),
+      expire: sinon.spy(function(key, ttl) {})
     };
 
     this.server.settings.virtualAppRegistry = {
@@ -91,6 +92,7 @@ describe('routes/dev', function() {
           // are written to the cache.
           assert.ok(self.cache.writeStream.calledWith(cacheKey, sinon.match.number));
           assert.ok(self.cache.setex.calledWith(cacheKey + '/hash', sinon.match.number, hash));
+          assert.ok(self.cache.expire.calledWith(self.user.userId + '/' + self.virtualApp.appId + '/_manifest', sinon.match.number));
           done();
         });
     });
