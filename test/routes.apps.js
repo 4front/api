@@ -38,7 +38,8 @@ describe('routes/apps', function() {
 
     this.server.use(function(req, res, next) {
       req.ext = {
-        user: self.user
+        user: self.user,
+        orgMember: self.orgMember
       };
 
       next();
@@ -168,11 +169,12 @@ describe('routes/apps', function() {
   });
 
   describe('POST /', function() {
-    var appData = {
-      name: 'app-name'
-    };
-
     it('creates app', function(done) {
+      var appData = {
+        name: 'app-name',
+        orgId: this.organization.orgId
+      };
+
       supertest(this.server)
         .post('/')
         .send(appData)

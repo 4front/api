@@ -39,6 +39,10 @@ describe('routes/versions', function() {
       req.ext = {
         user: self.user,
         organization: self.organization,
+        orgMember: {
+          orgId: self.organization.orgId,
+          role: 'admin'
+        },
         virtualApp: self.virtualApp
       };
 
@@ -78,7 +82,7 @@ describe('routes/versions', function() {
       },
       deploy: sinon.spy(function(appId, versionId, fileInfo, callback) {
         callback();
-      }),
+      })
     };
 
     // Register middleware for handling the appId parameter
@@ -95,7 +99,7 @@ describe('routes/versions', function() {
         .expect(201)
         .expect(function(res) {
           assert.ok(self.deployer.versions.create.calledWith(sinon.match({
-            name: 'v2',
+            name: 'v2'
           })));
         })
         .end(done);
@@ -122,7 +126,7 @@ describe('routes/versions', function() {
   describe('GET /:versionId', function() {
     it('returns version', function(done) {
       var versionId = shortid.generate();
-      this.database.getVersion = sinon.spy(function(appId, versionId, callback) {
+      this.database.getVersion = sinon.spy(function(appId, _versionId, callback) {
         callback(null, {versionId: versionId});
       });
 
@@ -217,7 +221,7 @@ describe('routes/versions', function() {
         versionNum: 5 // This should not get updated
       };
 
-      self.database.updateVersion = sinon.spy(function(versionData, callback) {
+      self.database.updateVersion = sinon.spy(function(_versionData, callback) {
         callback(null, versionData);
       });
 

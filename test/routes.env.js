@@ -27,6 +27,9 @@ describe('routes.env', function() {
           orgId: shortid.generate(),
           environments: ['test', 'production']
         },
+        orgMember: {
+          role: 'admin'
+        },
         virtualApp: self.virtualApp
       };
 
