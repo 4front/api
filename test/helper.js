@@ -1,6 +1,8 @@
 var express = require('express');
 var sinon = require('sinon');
 
+require('simple-errors');
+
 module.exports.beforeEach = function() {
   this.server = express();
   var options = {
@@ -26,7 +28,7 @@ module.exports.beforeEach = function() {
 module.exports.errorHandler = function(err, req, res, next) {
   res.statusCode = err.status || 500;
   if (res.statusCode === 500) {
-    console.error(err);
+    console.error(Error.toJson(err));
     res.end(err.stack);
   }
   else

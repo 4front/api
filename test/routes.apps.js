@@ -49,9 +49,6 @@ describe('routes/apps', function() {
     this.domainZoneId = '123';
 
     this.server.settings.database = this.database = {
-      createApplication: sinon.spy(function(data, callback) {
-        callback(null, data);
-      }),
       updateApplication: sinon.spy(function(data, callback) {
         callback(null, data);
       }),
@@ -104,8 +101,6 @@ describe('routes/apps', function() {
         callback(null, _.find(self.appRegistry, {name: name}));
       },
       flushApp: sinon.spy(function(app) {
-      }),
-      add: sinon.spy(function(app) {
       })
     };
 
@@ -164,28 +159,6 @@ describe('routes/apps', function() {
       supertest(this.server)
         .head('/someappname')
         .expect(404)
-        .end(done);
-    });
-  });
-
-  describe('POST /', function() {
-    it('creates app', function(done) {
-      var appData = {
-        name: 'app-name',
-        orgId: this.organization.orgId
-      };
-
-      supertest(this.server)
-        .post('/')
-        .send(appData)
-        .expect(201)
-        .expect(function(res) {
-          assert.isMatch(res.body, appData);
-          assert.ok(res.body.appId);
-          assert.equal(self.user.userId, res.body.ownerId);
-          assert.ok(self.database.createApplication.called);
-          assert.ok(self.virtualAppRegistry.add.calledWith(sinon.match({appId: res.body.appId})));
-        })
         .end(done);
     });
   });

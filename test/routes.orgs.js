@@ -51,6 +51,12 @@ describe('routes/orgs', function() {
       updateOrganization: sinon.spy(function(data, callback) {
         callback(null, data);
       }),
+      createApplication: sinon.spy(function(data, callback) {
+        callback(null, data);
+      }),
+      getAppName: function(name, callback) {
+        callback(null, self.appName);
+      },
       terminateOrganization: sinon.spy(function(orgId, callback) {
         callback(null);
       }),
@@ -125,6 +131,34 @@ describe('routes/orgs', function() {
         .expect(200)
         .expect(function(res) {
           assert.noDifferences(_.map(res.body, 'appId'), appIds);
+        })
+        .end(done);
+    });
+  });
+
+  // Test creating an application
+  describe('POST /:orgId/apps', function() {
+    it('creates app', function(done) {
+      this.server.settings.virtualAppRegistry = {
+        add: sinon.spy(function(app) {})
+      };
+
+      var appData = {
+        name: 'app-name',
+        orgId: this.organization.orgId
+      };
+
+      supertest(this.server)
+        .post('/' + this.organization.orgId + '/apps')
+        .send(appData)
+        .expect(201)
+        .expect(function(res) {
+          assert.isMatch(res.body, appData);
+          assert.ok(res.body.appId);
+          assert.equal(self.user.userId, res.body.ownerId);
+          assert.ok(self.database.createApplication.called);
+          assert.ok(self.server.settings.virtualAppRegistry.add.calledWith(
+            sinon.match({appId: res.body.appId})));
         })
         .end(done);
     });
