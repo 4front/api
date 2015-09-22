@@ -34,7 +34,7 @@ describe('routes/orgs', function() {
       role: 'admin'
     };
 
-    this.orgMembers, this.userInfo = [];
+    this.userInfo = [];
 
     this.server.use(function(req, res, next) {
       req.ext = {
@@ -57,9 +57,6 @@ describe('routes/orgs', function() {
       getOrganization: function(orgId, callback) {
         callback(null, self.organization);
       },
-      updateOrganization: sinon.spy(function(orgData, callback) {
-        callback(null, orgData);
-      }),
       getUserInfo: sinon.spy(function(userIds, callback) {
         callback(null, self.userInfo);
       }),
@@ -81,17 +78,6 @@ describe('routes/orgs', function() {
       updateProfile: sinon.spy(function(userData, callback) {
         callback(null, userData);
       })
-    };
-
-    this.server.settings.orgPlans = {
-      unlimited: {
-        operationLimit:0
-      },
-      trial: {
-        price: 0,
-        duration: 45,
-        operationLimit:0
-      }
     };
 
     this.server.use(orgsRoute(this.options));
@@ -127,7 +113,7 @@ describe('routes/orgs', function() {
       });
 
       this.server.settings.virtualAppRegistry = {
-        batchGetById: sinon.spy(function(appIds, callback) {
+        batchGetById: sinon.spy(function(_appIds, callback) {
           callback(null, _.map(appIds, function(appId) {
             return {appId: appId};
           }));
@@ -148,17 +134,17 @@ describe('routes/orgs', function() {
     it('retrieve org members', function(done) {
       this.database.listOrgMembers = sinon.spy(function(orgId, callback) {
         callback(null, [
-          {userId: '1', role:'admin'},
+          {userId: '1', role: 'admin'},
           {userId: '2', role: 'contributor'}
         ]);
       });
 
       this.database.getUserInfo = sinon.spy(function(userIds, callback) {
         callback(null, {
-          '1': {
+          1: {
             username: 'walter'
           },
-          '2': {
+          2: {
             username: 'alice'
           }
         });
@@ -277,36 +263,6 @@ describe('routes/orgs', function() {
         .end(done);
     });
 
-    it('trial plan', function(done) {
-      supertest(this.server)
-        .post('/')
-        .send({name: 'test org', plan: 'trial'})
-        .expect(201)
-        .expect(function(res) {
-          assert.ok(self.database.createOrganization.called);
-          assert.isMatch(self.database.createOrganization.args[0][0], {
-            trialStart: moment().format('YYYY-MM-DD'),
-            trialEnd: moment().add(45, 'days').format('YYYY-MM-DD'),
-            monthlyRate: 0,
-            activated: false
-          });
-          assert.isMatch(self.membership.updateProfile.args[0][0], {usedTrialOrg: true});
-        })
-        .end(done);
-    });
-
-    it('trial org already used', function(done) {
-      this.user.usedTrialOrg = true;
-      supertest(this.server)
-        .post('/')
-        .send({name: 'test org', plan: 'trial'})
-        .expect(400)
-        .expect(function(res) {
-          assert.equal(res.body.code, 'userAlreadyUsedTrial');
-        })
-        .end(done);
-    });
-
     it('invalid org name', function(done) {
       supertest(this.server)
         .post('/')
@@ -325,7 +281,6 @@ describe('routes/orgs', function() {
         .expect(201)
         .expect(function(res) {
           assert.isTrue(self.database.createOrganization.calledWith(sinon.match({
-            plan: 'unlimited',
             environments: ['production']
           })));
         })
