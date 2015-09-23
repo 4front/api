@@ -136,6 +136,23 @@ describe('routes/orgs', function() {
     });
   });
 
+  describe('GET /:orgId/apps/count', function() {
+    it('retrieves org apps', function(done) {
+      var appIds = ['1', '2', '3'];
+      this.database.listOrgAppIds = sinon.spy(function(orgId, callback) {
+        callback(null, appIds);
+      });
+
+      supertest(this.server)
+        .get('/' + this.organization.orgId + '/apps/count')
+        .expect(200)
+        .expect(function(res) {
+          assert.equal(res.body, appIds.length);
+        })
+        .end(done);
+    });
+  });
+
   // Test creating an application
   describe('POST /:orgId/apps', function() {
     it('creates app', function(done) {
