@@ -250,7 +250,7 @@ describe('routes/apps', function() {
 
       this.appRegistry.push(appData);
 
-      var domainName = 'my.domain.com';
+      var domainName = 'www1.domain.com';
       supertest(this.server)
         .put('/' + appData.appId + '/domain')
         .send({domainName: domainName})
