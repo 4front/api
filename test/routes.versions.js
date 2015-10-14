@@ -64,7 +64,7 @@ describe('routes/versions', function() {
       getByName: function(name, opts, callback) {
         callback(null, _.find(self.appRegistry, {name: name}));
       },
-      flushApp: sinon.spy(function(app) {
+      flushApp: sinon.spy(function() {
       })
     };
 
@@ -168,8 +168,7 @@ describe('routes/versions', function() {
         if (i === 0) {
           version.status = 'initiated';
           version.created = new Date(Date.now() - 10 * 60 * 1000).toUTCString();
-        }
-        else {
+        } else {
           version.status = 'completed';
           version.created = new Date().toUTCString();
         }
@@ -184,13 +183,22 @@ describe('routes/versions', function() {
           var userInfo = {};
           _.times(3, function(i) {
             userInfo[i.toString()] = {
-              username: 'user' + (i+1)
-            }
+              username: 'user' + (i + 1)
+            };
           });
 
           callback(null, userInfo);
         })
       });
+
+      this.virtualApp.trafficRules = {
+        production: [
+          {
+            versionId: dbVersions[1].versionId,
+            rule: '*'
+          }
+        ]
+      };
 
       supertest(this.server)
         .get('/')
@@ -207,6 +215,14 @@ describe('routes/versions', function() {
             status: 'failed',
             error: 'Deployment timed out'
           })));
+
+          var versionWithTrafficRules = _.find(res.body, {versionId: dbVersions[1].versionId});
+          assert.deepEqual(versionWithTrafficRules.trafficRules, [
+            {
+              envName: 'production',
+              rule: '*'
+            }
+          ]);
         })
         .end(done);
     });
@@ -217,7 +233,7 @@ describe('routes/versions', function() {
       var versionData = {
         versionId: shortid.generate(),
         name: '1.0.0',
-        message: "version message",
+        message: 'version message',
         versionNum: 5 // This should not get updated
       };
 
@@ -257,7 +273,7 @@ describe('routes/versions', function() {
       var fileSize = fs.statSync(testFile).size;
 
       supertest(this.server)
-        .post('/' + versionId + "/deploy/html/lorum-ipsum.html")
+        .post('/' + versionId + '/deploy/html/lorum-ipsum.html')
         .set('Content-Length', fileSize)
         .send(fs.readFileSync(testFile).toString())
         .expect(201)
