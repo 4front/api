@@ -1,11 +1,9 @@
-/// <reference path="../typings/mocha/mocha.d.ts"/>
 var supertest = require('supertest');
 var express = require('express');
 var shortid = require('shortid');
 var assert = require('assert');
 var sinon = require('sinon');
 var _ = require('lodash');
-var bodyParser = require('body-parser');
 var debug = require('debug')('4front-api:test');
 var appsRoute = require('../lib/routes/apps');
 var helper = require('./helper');
@@ -89,18 +87,20 @@ describe('routes/apps', function() {
 
     this.server.settings.virtualAppRegistry = this.virtualAppRegistry = {
       getById: function(appId, opts, callback) {
-        if (_.isFunction(opts))
+        if (_.isFunction(opts)) {
           callback = opts;
+        }
 
         callback(null, _.find(self.appRegistry, {appId: appId}));
       },
       getByName: function(name, opts, callback) {
-        if (_.isFunction(opts))
+        if (_.isFunction(opts)) {
           callback = opts;
+        }
 
         callback(null, _.find(self.appRegistry, {name: name}));
       },
-      flushApp: sinon.spy(function(app) {
+      flushApp: sinon.spy(function() {
       })
     };
 
@@ -203,7 +203,7 @@ describe('routes/apps', function() {
     supertest(this.server)
       .delete('/' + appData.appId)
       .expect(204)
-      .expect(function(res) {
+      .expect(function() {
         assert.ok(self.database.deleteApplication.calledWith(appData.appId));
         assert.ok(self.deployer.versions.deleteAll.called);
 
@@ -255,7 +255,7 @@ describe('routes/apps', function() {
         .put('/' + appData.appId + '/domain')
         .send({domainName: domainName})
         .expect(200)
-        .expect(function(res) {
+        .expect(function() {
           assert.ok(self.domains.register.calledWith(domainName));
           assert.ok(self.database.createDomain.calledWith(appData.appId, domainName));
           assert.ok(self.database.updateDomain.calledWith(appData.appId, domainName, self.domainZoneId));
@@ -305,7 +305,7 @@ describe('routes/apps', function() {
         .delete('/' + virtualApp.appId + '/domain')
         .send({domainName: domainName})
         .expect(200)
-        .expect(function(res) {
+        .expect(function() {
           assert.ok(self.database.getDomain.calledWith(domainName));
           assert.ok(self.domains.unregister.calledWith(domainName, self.domainZoneId));
           assert.ok(self.database.deleteDomain.calledWith(virtualApp.appId, domainName));
