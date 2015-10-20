@@ -2,8 +2,8 @@ var supertest = require('supertest');
 var express = require('express');
 var shortid = require('shortid');
 var assert = require('assert');
-var moment = require('moment');
 var sinon = require('sinon');
+var bodyParser = require('body-parser');
 var _ = require('lodash');
 var debug = require('debug')('4front-api:test');
 var orgsRoute = require('../lib/routes/orgs');
@@ -36,6 +36,7 @@ describe('routes/orgs', function() {
 
     this.userInfo = [];
 
+    this.server.use(bodyParser.json());
     this.server.use(function(req, res, next) {
       req.ext = {
         user: self.user
@@ -157,7 +158,7 @@ describe('routes/orgs', function() {
   describe('POST /:orgId/apps', function() {
     it('creates app', function(done) {
       this.server.settings.virtualAppRegistry = {
-        add: sinon.spy(function(app) {})
+        add: sinon.spy(function() {})
       };
 
       var appData = {
@@ -259,7 +260,6 @@ describe('routes/orgs', function() {
     });
 
     it('brand new user', function(done) {
-      var userId = shortid.generate();
       var postData = {
         username: 'sally',
         provider: 'ldap',

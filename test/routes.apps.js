@@ -4,6 +4,7 @@ var shortid = require('shortid');
 var assert = require('assert');
 var sinon = require('sinon');
 var _ = require('lodash');
+var bodyParser = require('body-parser');
 var debug = require('debug')('4front-api:test');
 var appsRoute = require('../lib/routes/apps');
 var helper = require('./helper');
@@ -34,6 +35,7 @@ describe('routes/apps', function() {
       role: 'admin'
     };
 
+    this.server.use(bodyParser.json());
     this.server.use(function(req, res, next) {
       req.ext = {
         user: self.user,
@@ -44,7 +46,6 @@ describe('routes/apps', function() {
     });
 
     this.appRegistry = [];
-    this.domainZoneId = '123';
 
     this.server.settings.database = this.database = {
       updateApplication: sinon.spy(function(data, callback) {
@@ -65,23 +66,8 @@ describe('routes/apps', function() {
       getOrgMember: function(orgId, userId, callback) {
         callback(null, self.orgMember);
       },
-      createDomain: sinon.spy(function(appId, domain, callback) {
-        callback(null, {appId: appId, domain: domain});
-      }),
-      updateDomain: sinon.spy(function(appId, domain, zoneId, callback) {
-        callback();
-      }),
-      deleteDomain: sinon.spy(function(appId, domain, callback) {
-        callback();
-      })
-    };
-
-    this.server.settings.domains = this.domains = {
-      register: sinon.spy(function(domainName, callback) {
-        callback(null, self.domainZoneId);
-      }),
-      unregister: sinon.spy(function(domainName, zoneId, callback) {
-        callback(null);
+      updateDomain: sinon.spy(function(domainData, callback) {
+        callback(null, domainData);
       })
     };
 
@@ -190,13 +176,13 @@ describe('routes/apps', function() {
       domains: ['one.domain.com', 'two.domain.com']
     };
 
-    this.database.getDomain = sinon.spy(function(domain, callback) {
-      callback(null, {
-        appId: appData.appId,
-        domain: domain,
-        zone: self.domainZoneId
-      });
-    });
+    // this.database.getDomain = sinon.spy(function(domain, callback) {
+    //   callback(null, {
+    //     appId: appData.appId,
+    //     domain: domain,
+    //     zone: self.domainZoneId
+    //   });
+    // });
 
     this.appRegistry.push(appData);
 
@@ -207,8 +193,14 @@ describe('routes/apps', function() {
         assert.ok(self.database.deleteApplication.calledWith(appData.appId));
         assert.ok(self.deployer.versions.deleteAll.called);
 
-        assert.ok(self.domains.unregister.calledWith('one.domain.com'));
-        assert.ok(self.domains.unregister.calledWith('two.domain.com'));
+        appData.domains.forEach(function(domainName) {
+          assert.ok(self.database.updateDomain.calledWith({
+            domain: domainName,
+            orgId: appData.orgId,
+            appId: null
+          }));
+        });
+
         assert.ok(self.virtualAppRegistry.flushApp.called);
       })
       .end(done);
@@ -230,133 +222,5 @@ describe('routes/apps', function() {
         assert.ok(self.database.updateTrafficRules.calledWith(appData.appId, environment));
       })
       .end(done);
-  });
-
-  // Create new custom domain
-  describe('PUT /:appId/domain', function() {
-    it('creates new domain', function(done) {
-      var appData = {
-        appId: shortid.generate(),
-        orgId: shortid.generate()
-      };
-
-      this.database.getDomain = sinon.spy(function(domain, callback) {
-        callback(null, {
-          appId: appData.appId,
-          domain: domain,
-          zone: self.domainZoneId
-        });
-      });
-
-      this.appRegistry.push(appData);
-
-      var domainName = 'www1.domain.com';
-      supertest(this.server)
-        .put('/' + appData.appId + '/domain')
-        .send({domainName: domainName})
-        .expect(200)
-        .expect(function() {
-          assert.ok(self.domains.register.calledWith(domainName));
-          assert.ok(self.database.createDomain.calledWith(appData.appId, domainName));
-          assert.ok(self.database.updateDomain.calledWith(appData.appId, domainName, self.domainZoneId));
-        })
-        .end(done);
-    });
-
-    it('domain name invalid', function(done) {
-      var appData = {
-        appId: shortid.generate(),
-        orgId: shortid.generate()
-      };
-
-      this.appRegistry.push(appData);
-
-      supertest(this.server)
-        .put('/' + appData.appId + '/domain')
-        .send({domainName: 'invaliddomain??'})
-        .expect(400)
-        .expect(function(res) {
-          assert.equal(res.body.code, 'invalidDomainName');
-        })
-        .end(done);
-    });
-  });
-
-  describe('DELETE /:appId/domain', function() {
-    it('deletes a domain', function(done) {
-      var virtualApp = {
-        appId: shortid.generate(),
-        orgId: shortid.generate()
-      };
-
-      this.appRegistry.push(virtualApp);
-
-      var domainName = 'my.domain.com';
-
-      this.database.getDomain = sinon.spy(function(domain, callback) {
-        callback(null, {
-          appId: virtualApp.appId,
-          domain: domainName,
-          zone: self.domainZoneId
-        });
-      });
-
-      supertest(this.server)
-        .delete('/' + virtualApp.appId + '/domain')
-        .send({domainName: domainName})
-        .expect(200)
-        .expect(function() {
-          assert.ok(self.database.getDomain.calledWith(domainName));
-          assert.ok(self.domains.unregister.calledWith(domainName, self.domainZoneId));
-          assert.ok(self.database.deleteDomain.calledWith(virtualApp.appId, domainName));
-        })
-        .end(done);
-    });
-
-    it('delete domain belonging to different app', function(done) {
-      var virtualApp = {
-        appId: shortid.generate(),
-        orgId: shortid.generate()
-      };
-
-      this.appRegistry.push(virtualApp);
-
-      var domainName = 'my.domain.com';
-
-      this.database.getDomain = sinon.spy(function(domain, callback) {
-        callback(null, {
-          appId: shortid.generate(), // return a different appId
-          domain: domainName,
-          zone: self.domainZoneId
-        });
-      });
-
-      supertest(this.server)
-        .delete('/' + virtualApp.appId + '/domain')
-        .send({domainName: domainName})
-        .expect(403)
-        .end(done);
-    });
-
-    it('delete a missing domain', function(done) {
-      var virtualApp = {
-        appId: shortid.generate(),
-        orgId: shortid.generate()
-      };
-
-      this.appRegistry.push(virtualApp);
-
-      var domainName = 'my.domain.com';
-
-      this.database.getDomain = sinon.spy(function(domain, callback) {
-        callback(null, null);
-      });
-
-      supertest(this.server)
-        .delete('/' + virtualApp.appId + '/domain')
-        .send({domainName: domainName})
-        .expect(404)
-        .end(done);
-    });
   });
 });
