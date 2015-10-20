@@ -67,7 +67,7 @@ describe('appIdParam', function() {
     this.server.param('appId', appIdParam(this.options));
 
     this.server.get('/:appId', function(req, res, next) {
-      debug("/" + req.params.appId);
+      debug('/' + req.params.appId);
       res.json(req.ext);
     });
 
@@ -96,7 +96,7 @@ describe('appIdParam', function() {
       .get('/' + shortid.generate())
       .expect(404)
       .expect(function(res) {
-        assert.equal(res.body.code, "appNotFound");
+        assert.equal(res.body.code, 'appNotFound');
       })
       .end(done);
   });
@@ -108,7 +108,7 @@ describe('appIdParam', function() {
       .get('/' + this.virtualApp.appId)
       .expect(401)
       .expect(function(res) {
-        assert.equal(res.body.code, "userNotOrgMember");
+        assert.equal(res.body.code, 'userNotOrgMember');
       })
       .end(done);
   });

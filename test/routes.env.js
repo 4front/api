@@ -3,7 +3,6 @@ var express = require('express');
 var shortid = require('shortid');
 var assert = require('assert');
 var sinon = require('sinon');
-var _ = require('lodash');
 var bodyParser = require('body-parser');
 var debug = require('debug')('4front:api:test');
 var helper = require('./helper');
@@ -19,8 +18,9 @@ describe('routes.env', function() {
     this.appId = shortid.generate();
     this.virtualApp = {
       appId: this.appId
-    }
+    };
 
+    this.server.use(bodyParser.json());
     this.server.use(function(req, res, next) {
       req.ext = {
         organization: {
@@ -46,7 +46,7 @@ describe('routes.env', function() {
     };
 
     this.server.settings.virtualAppRegistry = this.virtualAppRegistry = {
-      flushApp: sinon.spy(function(app) {})
+      flushApp: sinon.spy(function() {})
     };
 
     this.server.use(envRoute());

@@ -2,7 +2,6 @@ var supertest = require('supertest');
 var express = require('express');
 var shortid = require('shortid');
 var assert = require('assert');
-var sinon = require('sinon');
 var debug = require('debug')('4front-api:test');
 var orgIdParam = require('../lib/middleware/orgid-param');
 var helper = require('./helper');
@@ -49,7 +48,7 @@ describe('orgIdParam', function() {
     this.server.param('orgId', orgIdParam());
 
     this.server.get('/:orgId', function(req, res, next) {
-      debug("/" + req.params.orgId);
+      debug('/' + req.params.orgId);
       res.json(req.ext);
     });
 
@@ -75,7 +74,7 @@ describe('orgIdParam', function() {
       .get('/' + shortid.generate())
       .expect(404)
       .expect(function(res) {
-        assert.equal(res.body.code, "orgNotFound");
+        assert.equal(res.body.code, 'orgNotFound');
       })
       .end(done);
   });
@@ -87,7 +86,7 @@ describe('orgIdParam', function() {
       .get('/' + shortid.generate())
       .expect(401)
       .expect(function(res) {
-        assert.equal(res.body.code, "userNotOrgMember");
+        assert.equal(res.body.code, 'userNotOrgMember');
       })
       .end(done);
   });

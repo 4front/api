@@ -1,5 +1,5 @@
+/* eslint no-console: 0 */
 var express = require('express');
-var sinon = require('sinon');
 
 require('simple-errors');
 
@@ -19,9 +19,9 @@ module.exports.beforeEach = function() {
     if (res.statusCode === 500) {
       console.log(err.stack);
       res.end(err.stack);
-    }
-    else
+    } else {
       res.end();
+    }
   });
 };
 
@@ -30,7 +30,7 @@ module.exports.errorHandler = function(err, req, res, next) {
   if (res.statusCode === 500) {
     console.error(Error.toJson(err));
     res.end(err.stack);
-  }
-  else
+  } else {
     res.json(err);
+  }
 };

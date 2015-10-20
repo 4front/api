@@ -3,12 +3,8 @@ var express = require('express');
 var shortid = require('shortid');
 var assert = require('assert');
 var sinon = require('sinon');
-var fs = require('fs');
-var path = require('path');
 var through = require('through2');
 var _ = require('lodash');
-var sbuff = require('simple-bufferstream');
-var memoryCache = require('memory-cache-stream');
 var debug = require('debug')('4front-api:test');
 var devRoute = require('../lib/routes/dev');
 var helper = require('./helper');
@@ -23,18 +19,17 @@ describe('routes/dev', function() {
 
     this.server = express();
     this.server.settings.cache = this.cache = {
-      setex: sinon.spy(function(key, ttl, value) {}),
-      writeStream: sinon.spy(function(key, ttl) {
+      setex: sinon.spy(function() {}),
+      writeStream: sinon.spy(function() {
         return through();
       }),
-      del: sinon.spy(function(key) {}),
-      expire: sinon.spy(function(key, ttl) {})
+      del: sinon.spy(function() {}),
+      expire: sinon.spy(function() {})
     };
 
     this.server.settings.virtualAppRegistry = {
       getById: function(appId, opts, callback) {
-        if (_.isFunction(opts))
-          callback = opts;
+        if (_.isFunction(opts)) callback = opts;
 
         callback(null, {appId: appId, orgId: '1'});
       }
@@ -77,7 +72,7 @@ describe('routes/dev', function() {
 
   describe('POST /upload', function() {
     it('upload a file to the sandbox', function(done) {
-      var fileContents = "<html>blog</html>";
+      var fileContents = '<html>blog</html>';
       var hash = 'asdfasdfasdfasdf';
 
       supertest(this.server)

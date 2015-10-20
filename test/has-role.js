@@ -1,9 +1,7 @@
 var supertest = require('supertest');
-var _ = require('lodash');
 var express = require('express');
 var shortid = require('shortid');
 var assert = require('assert');
-var sinon = require('sinon');
 var debug = require('debug')('4front-api:test');
 var hasRole = require('../lib/middleware/has-role');
 var helper = require('./helper');
@@ -30,7 +28,7 @@ describe('hasRole()', function() {
     };
 
     this.server.use(function(req, res, next) {
-      debug("initialize req.ext");
+      debug('initialize req.ext');
       req.ext = {
         user: self.user,
         orgMember: self.orgMember
@@ -43,8 +41,7 @@ describe('hasRole()', function() {
 
     this.server.get('/', function(req, res, next) {
       hasRole(self.requiredRoles)(req, res, function(err) {
-        if (err)
-          return next(err);
+        if (err) return next(err);
         res.json(req.ext);
       });
     });

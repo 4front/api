@@ -2,7 +2,6 @@ var supertest = require('supertest');
 var express = require('express');
 var shortid = require('shortid');
 var assert = require('assert');
-var sinon = require('sinon');
 var jwt = require('jwt-simple');
 var debug = require('debug')('4front-api:test');
 var auth = require('../lib/middleware/auth');
@@ -70,7 +69,7 @@ describe('auth()', function() {
       .get('/')
       .expect(401)
       .expect(function(res) {
-        assert.equal(res.body.code, 'notAuthenticated')
+        assert.equal(res.body.code, 'notAuthenticated');
       })
       .end(done);
   });
@@ -86,7 +85,7 @@ describe('auth()', function() {
       .set('X-Access-Token', token)
       .expect(401)
       .expect(function(res) {
-        assert.equal(res.body.code, 'notAuthenticated')
+        assert.equal(res.body.code, 'notAuthenticated');
       })
       .end(done);
   });
@@ -102,7 +101,7 @@ describe('auth()', function() {
       .set('X-Access-Token', token)
       .expect(401)
       .expect(function(res) {
-        assert.equal(res.body.code, 'notAuthenticated')
+        assert.equal(res.body.code, 'notAuthenticated');
       })
       .end(done);
   });
@@ -110,7 +109,7 @@ describe('auth()', function() {
   it('skips authentication of profile/login requests', function(done) {
     supertest(this.server)
       .post('/profile/login')
-      .send({username: 'test', password:'password'})
+      .send({username: 'test', password: 'password'})
       .expect(200)
       .expect(function(res) {
         assert.isUndefined(res.user);

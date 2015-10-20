@@ -2,9 +2,8 @@ var supertest = require('supertest');
 var express = require('express');
 var shortid = require('shortid');
 var assert = require('assert');
-var moment = require('moment');
 var sinon = require('sinon');
-var _ = require('lodash');
+var bodyParser = require('body-parser');
 var debug = require('debug')('4front-api:test');
 var profileRoute = require('../lib/routes/profile');
 var helper = require('./helper');
@@ -38,8 +37,9 @@ describe('routes/profile', function() {
     this.server.settings.jwtTokenExpireMinutes = 20;
     this.server.settings.jwtTokenSecret = 'asdflaksdjflaksdf';
 
+    this.server.use(bodyParser.json());
     this.server.use(function(req, res, next) {
-      debug("setting up request");
+      debug('setting up request');
       req.ext = {
         user: self.user
       };
@@ -123,7 +123,7 @@ describe('routes/profile', function() {
         .post('/login')
         .send({username: this.username, password: this.password})
         .expect(200)
-        .expect(function (res) {
+        .expect(function(res) {
           assert.isTrue(self.server.settings.membership.login.calledWith(
             self.username, self.password));
         })
@@ -132,14 +132,14 @@ describe('routes/profile', function() {
 
     it('login failure', function(done) {
       this.server.settings.membership.login = sinon.spy(function(username, password, callback) {
-        callback(Error.create("", {code: "invalidCredentials"}));
+        callback(Error.create('', {code: 'invalidCredentials'}));
       });
 
       supertest(this.server)
         .post('/login')
         .send({username: this.username, password: this.password})
         .expect(401)
-        .expect(function (res) {
+        .expect(function(res) {
           assert.isTrue(self.server.settings.membership.login.called);
           assert.equal(res.body.code, 'invalidCredentials');
         })

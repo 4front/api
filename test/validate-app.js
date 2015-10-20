@@ -2,7 +2,6 @@ var supertest = require('supertest');
 var express = require('express');
 var shortid = require('shortid');
 var assert = require('assert');
-var sinon = require('sinon');
 var bodyParser = require('body-parser');
 var debug = require('debug')('4front-api:test');
 var validateApp = require('../lib/middleware/validate-app');
@@ -48,7 +47,7 @@ describe('validateApp', function() {
       .send(this.appData)
       .expect(400)
       .expect(function(res) {
-        assert.equal(res.body.code, "invalidAppName");
+        assert.equal(res.body.code, 'invalidAppName');
       })
       .end(done);
   });
@@ -61,7 +60,7 @@ describe('validateApp', function() {
       .send(this.appData)
       .expect(400)
       .expect(function(res) {
-        assert.equal(res.body.code, "invalidAppName");
+        assert.equal(res.body.code, 'invalidAppName');
       })
       .end(done);
   });
@@ -78,7 +77,7 @@ describe('validateApp', function() {
       .send(this.appData)
       .expect(400)
       .expect(function(res) {
-        assert.equal(res.body.code, "appNameUnavailable");
+        assert.equal(res.body.code, 'appNameUnavailable');
       })
       .end(done);
   });
@@ -91,7 +90,7 @@ describe('validateApp', function() {
       .send(this.appData)
       .expect(400)
       .expect(function(res) {
-        assert.equal(res.body.code, "invalidAppName");
+        assert.equal(res.body.code, 'invalidAppName');
       })
       .end(done);
   });
@@ -104,7 +103,7 @@ describe('validateApp', function() {
       .send(this.appData)
       .expect(400)
       .expect(function(res) {
-        assert.equal(res.body.code, "invalidAppName");
+        assert.equal(res.body.code, 'invalidAppName');
       })
       .end(done);
   });
