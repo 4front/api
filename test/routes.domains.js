@@ -3,7 +3,8 @@ var express = require('express');
 var shortid = require('shortid');
 var assert = require('assert');
 var sinon = require('sinon');
-// var _ = require('lodash');
+// var async = require('async');
+var _ = require('lodash');
 var bodyParser = require('body-parser');
 var debug = require('debug')('4front-api:test');
 var domainsRoute = require('../lib/routes/domains');
@@ -11,7 +12,7 @@ var helper = require('./helper');
 
 require('dash-assert');
 
-describe('routes/apps', function() {
+describe('routes/domains', function() {
   var self;
 
   beforeEach(function() {
@@ -71,6 +72,27 @@ describe('routes/apps', function() {
 
     this.server.use(domainsRoute());
     this.server.use(helper.errorHandler);
+  });
+
+  describe('GET /', function() {
+    it('lists domains for org', function(done) {
+      var domains = _.times(3, function() {
+        return {
+          domain: 'www.' + shortid.generate() + '.com'
+        };
+      });
+
+      this.server.settings.database.listDomains = sinon.spy(function(orgId, callback) {
+        callback(null, domains);
+      });
+
+      supertest(this.server).get('/')
+        .expect(200)
+        .expect(function(res) {
+          assert.deepEqual(res.body, domains);
+        })
+        .end(done);
+    });
   });
 
   // Create new custom domain
