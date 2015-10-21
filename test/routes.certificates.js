@@ -3,6 +3,7 @@ var express = require('express');
 var shortid = require('shortid');
 var assert = require('assert');
 var sinon = require('sinon');
+// var moment = require('moment');
 // var async = require('async');
 var _ = require('lodash');
 var bodyParser = require('body-parser');
@@ -47,7 +48,12 @@ describe('routes/certificates', function() {
       next();
     });
 
-    this.certificateZone = shortid.generate();
+    this.uploadedCertificate = {
+      certificateId: shortid.generate(),
+      zone: shortid.generate(),
+      expires: new Date(Date.now() + 60000 * 60 * 24 * 365),
+      uploadDate: new Date()
+    };
 
     this.server.settings.database = this.database = {
       createCertificate: sinon.spy(function(certData, callback) {
@@ -63,9 +69,7 @@ describe('routes/certificates', function() {
 
     this.server.settings.domains = this.domains = {
       uploadCertificate: sinon.spy(function(certData, callback) {
-        callback(null, _.extend({}, certData, {
-          zone: self.certificateZone
-        }));
+        callback(null, _.extend({}, certData, self.uploadedCertificate));
       }),
       deleteCertificate: sinon.spy(function(certName, callback) {
         callback(null);
@@ -117,10 +121,8 @@ describe('routes/certificates', function() {
           assert.ok(self.domains.uploadCertificate.calledWith(certData));
           assert.ok(self.database.createCertificate.called);
 
-          assert.ok(self.database.createCertificate.calledWith(_.extend({}, certData, {
-            zone: self.certificateZone,
-            orgId: self.organization.orgId
-          })));
+          assert.ok(self.database.createCertificate.calledWith(_.extend({},
+            certData, self.uploadedCertificate, {orgId: self.organization.orgId})));
         })
         .end(done);
     });
