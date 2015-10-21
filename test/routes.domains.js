@@ -90,7 +90,7 @@ describe('routes/apps', function() {
             domain: domainName,
             orgId: self.organization.orgId,
             appId: appId,
-            zoneId: self.domainZoneId,
+            zone: self.domainZoneId,
             certificateId: certificateId
           }));
         })
