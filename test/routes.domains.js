@@ -133,6 +133,141 @@ describe('routes/domains', function() {
     });
   });
 
+  describe('POST /', function() {
+    beforeEach(function() {
+      self = this;
+
+      this.existingDomain = {
+        domain: 'www.domain.com',
+        zone: shortid.generate(),
+        appId: shortid.generate()
+      };
+
+      this.certificate = {
+        name: '*.domain.com',
+        zone: shortid.generate()
+      };
+
+      this.sharedZone = shortid.generate();
+
+      _.extend(this.database, {
+        getDomain: sinon.spy(function(domainName, callback) {
+          callback(null, self.existingDomain);
+        }),
+        getCertificate: sinon.spy(function(certName, callback) {
+          callback(null, self.certificate);
+        }),
+        updateDomain: sinon.spy(function(domainData, callback) {
+          callback(null, domainData);
+        })
+      });
+
+      _.extend(this.domains, {
+        transferDomain: sinon.spy(function(params, callback) {
+          callback(null, params.targetZone || self.sharedZone);
+        })
+      });
+    });
+
+    it('updates domain from no cert to cert', function(done) {
+      var domainData = {
+        domain: this.existingDomain.domain,
+        certificate: this.certificate.name,
+        appId: this.existingDomain.appId
+      };
+
+      supertest(this.server)
+        .post('/')
+        .send(domainData)
+        .expect(200)
+        .expect(function(res) {
+          assert.isTrue(self.database.getDomain.calledWith(domainData.domain));
+          assert.isTrue(self.database.getCertificate.calledWith(domainData.certificate));
+
+          // Domain should be transferred from the original zone to the
+          // zone of the certificate.
+          assert.isTrue(self.domains.transferDomain.calledWith({
+            domain: domainData.domain,
+            currentZone: self.existingDomain.zone,
+            targetZone: self.certificate.zone
+          }));
+
+          var updateDomainExpectedArg = _.extend(domainData, {
+            certificate: self.certificate.name,
+            zone: self.certificate.zone,
+            orgId: self.organization.orgId
+          });
+
+          assert.isTrue(self.database.updateDomain.calledWith(updateDomainExpectedArg));
+        })
+        .end(done);
+    });
+
+    it('updates domain from cert to no cert', function(done) {
+      var domainData = {
+        domain: this.existingDomain.domain,
+        certificate: null,
+        appId: shortid.generate()
+      };
+
+      this.existingDomain.certificate = this.certificate.name;
+      this.existingDomain.zone = this.certificate.zone;
+
+      supertest(this.server)
+        .post('/')
+        .send(domainData)
+        .expect(200)
+        .expect(function(res) {
+          assert.isTrue(self.database.getDomain.calledWith(domainData.domain));
+          assert.isFalse(self.database.getCertificate.called);
+
+          // Domain should be transferred from certificate zone to
+          // an unspecified null zone. The transferDomain function will choose
+          // the first available shared zone for non SSL domains.
+          assert.isTrue(self.domains.transferDomain.calledWith({
+            domain: domainData.domain,
+            currentZone: self.existingDomain.zone,
+            targetZone: null
+          }));
+
+          assert.isTrue(self.database.updateDomain.calledWith(_.extend(domainData, {
+            zone: self.sharedZone,
+            certificate: null,
+            orgId: self.organization.orgId
+          })));
+        })
+        .end(done);
+    });
+
+    it('updates non-SSL domain and it remains non-SSL', function(done) {
+      var domainData = {
+        domain: this.existingDomain.domain,
+        certificate: null,
+        appId: shortid.generate()
+      };
+
+      supertest(this.server)
+        .post('/')
+        .send(domainData)
+        .expect(200)
+        .expect(function(res) {
+          assert.isTrue(self.database.getDomain.calledWith(domainData.domain));
+          assert.isFalse(self.database.getCertificate.called);
+
+          // domain should not be transferred since it was not and is not
+          // associated with a certificate
+          assert.isFalse(self.domains.transferDomain.called);
+
+          assert.isTrue(self.database.updateDomain.calledWith(_.extend(domainData, {
+            zone: self.existingDomain.zone,
+            certificate: null,
+            orgId: self.organization.orgId
+          })));
+        })
+        .end(done);
+    });
+  });
+
   describe('DELETE /', function() {
     it('deletes a domain', function(done) {
       var appId = shortid.generate();
