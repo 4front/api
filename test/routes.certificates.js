@@ -102,19 +102,16 @@ describe('routes/certificates', function() {
   });
 
   // Create new certificate
-  describe('PUT /', function() {
+  describe('POST /', function() {
     it('creates new certificate', function(done) {
-      // var orgId = shortid.generate();
-
       var certData = {
-        name: '*.' + shortid.generate() + '.com',
         privateKey: 'asdfasdg',
         certificateBody: 'shfdghdhfg',
         certificateChain: 'adfgsdg'
       };
 
       supertest(this.server)
-        .put('/')
+        .post('/')
         .send(certData)
         .expect(200)
         .expect(function() {
@@ -128,32 +125,52 @@ describe('routes/certificates', function() {
     });
   });
 
-  // describe('DELETE /', function() {
-  //   it('deletes a certificate', function(done) {
-  //     var appId = shortid.generate();
-  //     var domainName = 'my.domain.com';
-  //
-  //     this.database.getDomain = sinon.spy(function(domain, callback) {
-  //       callback(null, {
-  //         appId: appId,
-  //         orgId: self.organization.orgId,
-  //         domain: domainName,
-  //         zone: self.domainZoneId
-  //       });
-  //     });
-  //
-  //     supertest(this.server)
-  //       .delete('/')
-  //       .send({domain: domainName})
-  //       .expect(204)
-  //       .expect(function() {
-  //         assert.ok(self.database.getDomain.calledWith(domainName));
-  //         assert.ok(self.domains.unregister.calledWith(domainName, self.domainZoneId));
-  //         assert.ok(self.database.deleteDomain.calledWith(self.organization.orgId, domainName));
-  //       })
-  //       .end(done);
-  //   });
-  //
+  describe('DELETE /', function() {
+    it('deletes a certificate', function(done) {
+      var certificate = {
+        certificateId: shortid.generate(),
+        name: '*.domain.com',
+        zone: shortid.generate(),
+        orgId: this.organization.orgId
+      };
+
+      // Create two domains for the org, one bound to the cert and another that is not.
+      var certDomains = [
+        {domain: 'my.domain.com', orgId: this.organization.orgId, certificateId: certificate.certificateId, zone: certificate.zone},
+        {domain: 'my.otherdomain.com', orgId: this.organization.orgId, zone: shortid.generate()}
+      ];
+
+      this.database.getCertificate = sinon.spy(function(certName, callback) {
+        callback(null, certificate);
+      });
+
+      this.database.getDomains = sinon.spy(function(domain, callback) {
+        callback(null, certDomains);
+      });
+
+      this.domains.transferDomain = sinon.spy(function(domain, currentZone, targetZone, cb) {
+        cb();
+      });
+
+      this.database.deleteCertificate = sinon.spy(function(orgId, certificateId, cb) {
+        cb();
+      });
+
+      supertest(this.server)
+        .delete('/')
+        .send({name: certificate.name})
+        .expect(204)
+        .expect(function() {
+          assert.isTrue(self.database.getCertificate.calledWith(certificate.name));
+          assert.isTrue(self.database.getDomains.calledWith(self.organization.orgId));
+          assert.equal(self.domains.transferDomain.callCount, 1);
+          assert.isTrue(self.domains.transferDomain.calledWith('my.domain.com', certificate.zone, null));
+          assert.isTrue(self.database.deleteCertificate.calledWith(self.organization.orgId, certificate.name));
+          assert.isTrue(self.domains.deleteCertificate.calledWith(certificate.name));
+        })
+        .end(done);
+    });
+
   //   it('delete domain belonging to different organization', function(done) {
   //     var domainName = 'my.domain.com';
   //
@@ -184,5 +201,5 @@ describe('routes/certificates', function() {
   //       .expect(404)
   //       .end(done);
   //   });
-  // });
+  });
 });

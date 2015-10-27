@@ -96,14 +96,14 @@ describe('routes/domains', function() {
   });
 
   // Create new custom domain
-  describe('PUT /', function() {
+  describe('POST /', function() {
     it('creates new domain', function(done) {
       var appId = shortid.generate();
       var certificateId = shortid.generate();
       var domainName = 'www1.domain.com';
 
       supertest(this.server)
-        .put('/')
+        .post('/')
         .send({domain: domainName, appId: appId, certificateId: certificateId})
         .expect(200)
         .expect(function() {
@@ -123,7 +123,7 @@ describe('routes/domains', function() {
       var orgId = shortid.generate();
 
       supertest(this.server)
-        .put('/')
+        .post('/')
         .send({domain: 'invaliddomain??', orgId: orgId})
         .expect(400)
         .expect(function(res) {
@@ -133,7 +133,7 @@ describe('routes/domains', function() {
     });
   });
 
-  describe('POST /', function() {
+  describe('PUT /', function() {
     beforeEach(function() {
       self = this;
 
@@ -177,7 +177,7 @@ describe('routes/domains', function() {
       };
 
       supertest(this.server)
-        .post('/')
+        .put('/')
         .send(domainData)
         .expect(200)
         .expect(function(res) {
@@ -214,7 +214,7 @@ describe('routes/domains', function() {
       this.existingDomain.zone = this.certificate.zone;
 
       supertest(this.server)
-        .post('/')
+        .put('/')
         .send(domainData)
         .expect(200)
         .expect(function(res) {
@@ -247,7 +247,7 @@ describe('routes/domains', function() {
       };
 
       supertest(this.server)
-        .post('/')
+        .put('/')
         .send(domainData)
         .expect(200)
         .expect(function(res) {
