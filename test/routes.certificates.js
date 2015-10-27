@@ -118,8 +118,8 @@ describe('routes/certificates', function() {
           assert.ok(self.domains.uploadCertificate.calledWith(certData));
           assert.ok(self.database.createCertificate.called);
 
-          assert.ok(self.database.createCertificate.calledWith(_.extend({},
-            certData, self.uploadedCertificate, {orgId: self.organization.orgId})));
+          assert.ok(self.database.createCertificate.calledWith(
+            _.extend({}, self.uploadedCertificate, {orgId: self.organization.orgId})));
         })
         .end(done);
     });
