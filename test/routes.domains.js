@@ -62,8 +62,8 @@ describe('routes/domains', function() {
     };
 
     this.server.settings.domains = this.domains = {
-      register: sinon.spy(function(domainName, callback) {
-        callback(null, self.domainZoneId);
+      register: sinon.spy(function(domainName, zone, callback) {
+        callback(null, zone);
       }),
       unregister: sinon.spy(function(domainName, zoneId, callback) {
         callback(null);
@@ -97,23 +97,59 @@ describe('routes/domains', function() {
 
   // Create new custom domain
   describe('POST /', function() {
-    it('creates new domain', function(done) {
+    it('creates domain without certificate', function(done) {
       var appId = shortid.generate();
-      var certificateId = shortid.generate();
       var domainName = 'www1.domain.com';
+      var assignedZone = shortid.generate();
+
+      this.domains.register = sinon.spy(function(domain, zone, callback) {
+        callback(null, assignedZone);
+      });
 
       supertest(this.server)
         .post('/')
-        .send({domain: domainName, appId: appId, certificateId: certificateId})
+        .send({domain: domainName, appId: appId})
         .expect(200)
         .expect(function() {
-          assert.ok(self.domains.register.calledWith(domainName));
+          assert.ok(self.domains.register.calledWith(domainName, null));
+
           assert.ok(self.database.createDomain.calledWith({
             domain: domainName,
             orgId: self.organization.orgId,
             appId: appId,
-            zone: self.domainZoneId,
-            certificateId: certificateId
+            zone: assignedZone
+          }));
+        })
+        .end(done);
+    });
+
+    it('creates new domain with certificate', function(done) {
+      var appId = shortid.generate();
+      var domainName = 'www1.domain.com';
+      var certificate = {
+        certificateId: shortid.generate(),
+        name: '@.domain.com',
+        zone: shortid.generate()
+      };
+
+      this.database.getCertificate = sinon.spy(function(certName, callback) {
+        callback(null, certificate);
+      });
+
+      supertest(this.server)
+        .post('/')
+        .send({domain: domainName, appId: appId, certificate: certificate.name})
+        .expect(200)
+        .expect(function() {
+          assert.isTrue(self.database.getCertificate.calledWith(certificate.name));
+          assert.ok(self.domains.register.calledWith(domainName, certificate.zone));
+
+          assert.ok(self.database.createDomain.calledWith({
+            domain: domainName,
+            orgId: self.organization.orgId,
+            appId: appId,
+            zone: certificate.zone,
+            certificate: certificate.name
           }));
         })
         .end(done);
