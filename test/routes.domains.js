@@ -163,8 +163,8 @@ describe('routes/domains', function() {
       });
 
       _.extend(this.domains, {
-        transferDomain: sinon.spy(function(params, callback) {
-          callback(null, params.targetZone || self.sharedZone);
+        transferDomain: sinon.spy(function(domainName, currentZone, targetZone, callback) {
+          callback(null, targetZone || self.sharedZone);
         })
       });
     });
@@ -186,11 +186,8 @@ describe('routes/domains', function() {
 
           // Domain should be transferred from the original zone to the
           // zone of the certificate.
-          assert.isTrue(self.domains.transferDomain.calledWith({
-            domain: domainData.domain,
-            currentZone: self.existingDomain.zone,
-            targetZone: self.certificate.zone
-          }));
+          assert.isTrue(self.domains.transferDomain.calledWith(domainData.domain,
+            self.existingDomain.zone, self.certificate.zone));
 
           var updateDomainExpectedArg = _.extend(domainData, {
             certificate: self.certificate.name,
@@ -224,11 +221,8 @@ describe('routes/domains', function() {
           // Domain should be transferred from certificate zone to
           // an unspecified null zone. The transferDomain function will choose
           // the first available shared zone for non SSL domains.
-          assert.isTrue(self.domains.transferDomain.calledWith({
-            domain: domainData.domain,
-            currentZone: self.existingDomain.zone,
-            targetZone: null
-          }));
+          assert.isTrue(self.domains.transferDomain.calledWith(
+            domainData.domain, self.existingDomain.zone, null));
 
           assert.isTrue(self.database.updateDomain.calledWith(_.extend(domainData, {
             zone: self.sharedZone,
