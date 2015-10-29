@@ -101,7 +101,7 @@ describe('routes/certificates', function() {
         })
       });
 
-      this.domains.getCertificateStatus = sinon.spy(function(name, callback) {
+      this.domains.getCertificateStatus = sinon.spy(function(certificate, callback) {
         callback(null, 'Deployed');
       });
     });
@@ -124,7 +124,7 @@ describe('routes/certificates', function() {
         .expect(200)
         .expect(function(res) {
           assert.equal(self.domains.getCertificateStatus.callCount, 1);
-          assert.isTrue(self.domains.getCertificateStatus.calledWith(self.certificates[1].name));
+          assert.isTrue(self.domains.getCertificateStatus.calledWith(self.certificates[1]));
           assert.equal(self.database.updateCertificate.callCount, 1);
           assert.isTrue(self.database.updateCertificate.calledWith({name: self.certificates[1].name, status: 'Deployed'}));
           assert.equal(res.body[1].status, 'Deployed');
