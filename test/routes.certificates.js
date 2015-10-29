@@ -81,21 +81,70 @@ describe('routes/certificates', function() {
   });
 
   describe('GET /', function() {
-    it('lists certificates for org', function(done) {
-      var certs = _.times(3, function() {
+    beforeEach(function() {
+      self = this;
+
+      this.certificates = _.times(3, function() {
         return {
-          name: 'www.' + shortid.generate() + '.com'
+          name: 'www.' + shortid.generate() + '.com',
+          cname: shortid.generate() + '.cloudfront.net',
+          status: 'Deployed'
         };
       });
 
-      this.server.settings.database.listCertificates = sinon.spy(function(orgId, callback) {
-        callback(null, certs);
+      _.extend(this.database, {
+        listCertificates: sinon.spy(function(orgId, callback) {
+          callback(null, self.certificates);
+        }),
+        updateCertificate: sinon.spy(function(certData, callback) {
+          callback(null, certData);
+        })
+      });
+
+      this.domains.getCertificateStatus = sinon.spy(function(name, callback) {
+        callback(null, 'Deployed');
+      });
+    });
+
+    it('lists certificates for org', function(done) {
+      supertest(this.server).get('/')
+        .expect(200)
+        .expect(function(res) {
+          assert.isFalse(self.domains.getCertificateStatus.called);
+          assert.isFalse(self.database.updateCertificate.called);
+          assert.deepEqual(res.body, self.certificates);
+        })
+        .end(done);
+    });
+
+    it('lists certificates updates status for InProgress certs', function(done) {
+      self.certificates[1].status = 'InProgress';
+
+      supertest(this.server).get('/')
+        .expect(200)
+        .expect(function(res) {
+          assert.equal(self.domains.getCertificateStatus.callCount, 1);
+          assert.isTrue(self.domains.getCertificateStatus.calledWith(self.certificates[1].name));
+          assert.equal(self.database.updateCertificate.callCount, 1);
+          assert.isTrue(self.database.updateCertificate.calledWith({name: self.certificates[1].name, status: 'Deployed'}));
+          assert.equal(res.body[1].status, 'Deployed');
+        })
+        .end(done);
+    });
+
+    it('lists certificates does not update certs still InProgress', function(done) {
+      self.certificates[1].status = 'InProgress';
+
+      this.domains.getCertificateStatus = sinon.spy(function(name, callback) {
+        callback(null, 'InProgress');
       });
 
       supertest(this.server).get('/')
         .expect(200)
         .expect(function(res) {
-          assert.deepEqual(res.body, certs);
+          assert.equal(self.domains.getCertificateStatus.callCount, 1);
+          assert.isFalse(self.database.updateCertificate.called);
+          assert.equal(res.body[1].status, 'InProgress');
         })
         .end(done);
     });
@@ -170,36 +219,5 @@ describe('routes/certificates', function() {
         })
         .end(done);
     });
-
-  //   it('delete domain belonging to different organization', function(done) {
-  //     var domainName = 'my.domain.com';
-  //
-  //     this.database.getDomain = sinon.spy(function(domain, callback) {
-  //       callback(null, {
-  //         orgId: shortid.generate(), // return a different appId
-  //         domain: domainName
-  //       });
-  //     });
-  //
-  //     supertest(this.server)
-  //       .delete('/')
-  //       .send({domain: domainName})
-  //       .expect(403)
-  //       .end(done);
-  //   });
-  //
-  //   it('delete a missing domain', function(done) {
-  //     var domainName = 'my.domain.com';
-  //
-  //     this.database.getDomain = sinon.spy(function(domain, callback) {
-  //       callback(null, null);
-  //     });
-  //
-  //     supertest(this.server)
-  //       .delete('/')
-  //       .send({domain: domainName})
-  //       .expect(404)
-  //       .end(done);
-  //   });
   });
 });
