@@ -13,17 +13,16 @@
     "api",
     "multi-tenant"
   ],
+  "files": [
+    "index.js",
+    "lib"
+  ],
   "author": "David Von Lehman <https://github.com/dvonlehman>",
   "repository": {
     "type": "git",
     "url": "https://github.com/4front/api"
   },
-  "licenses": [
-    {
-      "type": "Apache-2.0",
-      "url": "http://www.apache.org/licenses/LICENSE-2.0.html"
-    }
-  ],
+  "license": "Apache-2.0",
   "homepage": "http://4front.io",
   "devDependencies": {
     "dash-assert": "^1.0.2",
