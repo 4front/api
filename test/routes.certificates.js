@@ -126,7 +126,12 @@ describe('routes/certificates', function() {
           assert.equal(self.domains.getCertificateStatus.callCount, 1);
           assert.isTrue(self.domains.getCertificateStatus.calledWith(self.certificates[1]));
           assert.equal(self.database.updateCertificate.callCount, 1);
-          assert.isTrue(self.database.updateCertificate.calledWith({name: self.certificates[1].name, status: 'Deployed'}));
+          assert.isTrue(self.database.updateCertificate.calledWith({
+            name: self.certificates[1].name,
+            status: 'Deployed',
+            orgId: self.organization.orgId
+          }));
+
           assert.equal(res.body[1].status, 'Deployed');
         })
         .end(done);
