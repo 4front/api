@@ -198,7 +198,7 @@ describe('routes/certificates', function() {
         callback(null, certificate);
       });
 
-      this.database.getDomains = sinon.spy(function(domain, callback) {
+      this.database.listDomains = sinon.spy(function(domain, callback) {
         callback(null, certDomains);
       });
 
@@ -216,7 +216,7 @@ describe('routes/certificates', function() {
         .expect(204)
         .expect(function() {
           assert.isTrue(self.database.getCertificate.calledWith(certificate.name));
-          assert.isTrue(self.database.getDomains.calledWith(self.organization.orgId));
+          assert.isTrue(self.database.listDomains.calledWith(self.organization.orgId));
           assert.equal(self.domains.transferDomain.callCount, 1);
           assert.isTrue(self.domains.transferDomain.calledWith('my.domain.com', certificate.zone, null));
           assert.isTrue(self.database.deleteCertificate.calledWith(self.organization.orgId, certificate.name));
