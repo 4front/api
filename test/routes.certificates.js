@@ -71,7 +71,7 @@ describe('routes/certificates', function() {
       uploadCertificate: sinon.spy(function(certData, callback) {
         callback(null, _.extend({}, certData, self.uploadedCertificate));
       }),
-      deleteCertificate: sinon.spy(function(certName, callback) {
+      deleteCertificate: sinon.spy(function(certificate, callback) {
         callback(null);
       })
     };
@@ -220,7 +220,7 @@ describe('routes/certificates', function() {
           assert.equal(self.domains.transferDomain.callCount, 1);
           assert.isTrue(self.domains.transferDomain.calledWith('my.domain.com', certificate.zone, null));
           assert.isTrue(self.database.deleteCertificate.calledWith(self.organization.orgId, certificate.name));
-          assert.isTrue(self.domains.deleteCertificate.calledWith(certificate.name));
+          assert.isTrue(self.domains.deleteCertificate.calledWith(certificate));
         })
         .end(done);
     });
