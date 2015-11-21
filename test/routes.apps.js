@@ -206,7 +206,7 @@ describe('routes/apps', function() {
       .end(done);
   });
 
-  it('POST /:appId/traffic-rules', function(done) {
+  it('POST /:appId/traffic-rules/:env', function(done) {
     var appData = {appId: shortid.generate(), orgId: shortid.generate()};
     this.appRegistry.push(appData);
 
@@ -220,6 +220,26 @@ describe('routes/apps', function() {
       .expect(function(res) {
         assert.deepEqual(res.body, rules);
         assert.ok(self.database.updateTrafficRules.calledWith(appData.appId, environment));
+      })
+      .end(done);
+  });
+
+  it('DELETE /:appId/traffic-rules/:env', function(done) {
+    var appData = {appId: shortid.generate(), orgId: shortid.generate(), trafficRules: {
+      prod: [{version: '123', rule: '*'}],
+      test: [{version: '456', rule: '*'}]
+    }};
+
+    this.database.deleteTrafficRules = sinon.spy(function(appId, env, callback) {
+      callback();
+    });
+
+    this.appRegistry.push(appData);
+    supertest(this.server)
+      .del('/' + appData.appId + '/traffic-rules/test')
+      .expect(204)
+      .expect(function(res) {
+        assert.ok(self.database.deleteTrafficRules.calledWith(appData.appId, 'test'));
       })
       .end(done);
   });
