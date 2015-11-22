@@ -32,6 +32,7 @@ describe('routes/versions', function() {
 
     this.virtualApp = {
       appId: shortid.generate(),
+      name: 'cool-app',
       url: 'http://test.apphost.com'
     };
 
@@ -63,6 +64,9 @@ describe('routes/versions', function() {
       },
       getByName: function(name, opts, callback) {
         callback(null, _.find(self.appRegistry, {name: name}));
+      },
+      buildEnvUrl: function(virtualApp) {
+        return 'https://' + virtualApp.name + '.apphost.com';
       },
       flushApp: sinon.spy(function() {
       })
@@ -220,7 +224,8 @@ describe('routes/versions', function() {
           assert.deepEqual(versionWithTrafficRules.trafficRules, [
             {
               envName: 'production',
-              rule: '*'
+              rule: '*',
+              url: 'https://' + self.virtualApp.name + '.apphost.com'
             }
           ]);
         })
