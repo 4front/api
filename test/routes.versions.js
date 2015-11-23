@@ -293,4 +293,41 @@ describe('routes/versions', function() {
         .end(done);
     });
   });
+
+  describe('POST /:versionId/push/:envName', function() {
+    beforeEach(function() {
+      _.extend(this.database, {
+        updateTrafficRules: sinon.spy(function(appId, envName, rules, cb) {
+          cb();
+        }),
+        deleteTrafficRules: sinon.spy(function(appId, envName, cb) {
+          cb();
+        })
+      });
+    });
+
+    it('push all traffic to version', function(done) {
+      var versionId = shortid.generate();
+      this.virtualApp.trafficRules = {
+        production: [{versionId: shortid.generate(), rule: '*'}],
+        test: [{versionId: versionId, rule: '*'}]
+      };
+
+      supertest(this.server)
+        .post('/' + versionId + '/push/production')
+        .send({deleteOtherEnvRules: true})
+        .expect(200)
+        .expect(function(res) {
+          assert.isTrue(self.database.deleteTrafficRules.called);
+          assert.isTrue(self.database.deleteTrafficRules.calledWith(
+            self.virtualApp.appId, 'test'));
+
+          var lastUpdate = self.database.updateTrafficRules.lastCall;
+          assert.equal(lastUpdate.args[1], 'production');
+          assert.equal(lastUpdate.args[2].length, 1);
+          assert.deepEqual(lastUpdate.args[2][0], {versionId: versionId, rule: '*'});
+        })
+        .end(done);
+    });
+  });
 });
