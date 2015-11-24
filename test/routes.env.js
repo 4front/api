@@ -46,7 +46,9 @@ describe('routes.env', function() {
     };
 
     this.server.settings.virtualAppRegistry = this.virtualAppRegistry = {
-      flushApp: sinon.spy(function() {})
+      getById: sinon.spy(function(appId, options, callback) {
+        callback(null, {appId: appId});
+      })
     };
 
     this.server.use(envRoute());
@@ -70,7 +72,7 @@ describe('routes.env', function() {
             key: key
           }));
 
-          assert.ok(self.virtualAppRegistry.flushApp.calledWith(sinon.match({appId: self.appId})));
+          assert.ok(self.virtualAppRegistry.getById.calledWith(self.appId, {forceReload: true}));
         })
         .end(done);
     });
@@ -124,10 +126,10 @@ describe('routes.env', function() {
 
       supertest(this.server)
         .delete('/test/' + key)
-        .expect(204)
+        .expect(200)
         .expect(function(res) {
           assert.ok(self.database.deleteEnvironmentVariable.calledWith(self.appId, 'test', key));
-          assert.ok(self.virtualAppRegistry.flushApp.calledWith(sinon.match({appId: self.appId})));
+          assert.ok(self.virtualAppRegistry.getById.calledWith(self.appId, {forceReload: true}));
         })
         .end(done);
     });
@@ -137,9 +139,10 @@ describe('routes.env', function() {
 
       supertest(this.server)
         .delete('/' + key)
-        .expect(204)
+        .expect(200)
         .expect(function(res) {
           assert.ok(self.database.deleteEnvironmentVariable.calledWith(self.appId, '_global', key));
+          assert.ok(self.virtualAppRegistry.getById.calledWith(self.appId, {forceReload: true}));
         })
         .end(done);
     });
