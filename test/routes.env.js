@@ -100,11 +100,11 @@ describe('routes.env', function() {
       var value = 'config_value';
 
       supertest(this.server)
-        .put('/invalid/' + key)
+        .put('/inv__alid/' + key)
         .send({value: value})
-        .expect(404)
+        .expect(400)
         .expect(function(res) {
-          assert.equal(res.body.code, 'invalidVirtualEnv');
+          assert.equal(res.body.code, 'invalidEnvironmentName');
         })
         .end(done);
     });
