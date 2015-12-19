@@ -176,14 +176,6 @@ describe('routes/apps', function() {
       domains: ['one.domain.com', 'two.domain.com']
     };
 
-    // this.database.getDomain = sinon.spy(function(domain, callback) {
-    //   callback(null, {
-    //     appId: appData.appId,
-    //     domain: domain,
-    //     zone: self.domainZoneId
-    //   });
-    // });
-
     this.appRegistry.push(appData);
 
     supertest(this.server)
@@ -192,15 +184,6 @@ describe('routes/apps', function() {
       .expect(function() {
         assert.ok(self.database.deleteApplication.calledWith(appData.appId));
         assert.ok(self.deployer.versions.deleteAll.called);
-
-        appData.domains.forEach(function(domainName) {
-          assert.ok(self.database.updateDomain.calledWith({
-            domain: domainName,
-            orgId: appData.orgId,
-            appId: null
-          }));
-        });
-
         assert.ok(self.virtualAppRegistry.flushApp.called);
       })
       .end(done);
