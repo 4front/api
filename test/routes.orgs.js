@@ -357,4 +357,24 @@ describe('routes/orgs', function() {
       })
       .end(done);
   });
+
+  it('DEL /:orgId', function(done) {
+    _.extend(this.database, {
+      deleteOrgMembers: sinon.spy(function(orgId, callback) {
+        callback(null);
+      }),
+      deleteOrganization: sinon.spy(function(orgId, callback) {
+        callback(null);
+      })
+    });
+
+    supertest(this.server)
+      .del('/' + this.organization.orgId)
+      .expect(204)
+      .expect(function(res) {
+        assert.ok(self.database.deleteOrgMembers.calledWith(self.organization.orgId));
+        assert.ok(self.database.deleteOrganization.calledWith(self.organization.orgId));
+      })
+      .end(done);
+  });
 });
