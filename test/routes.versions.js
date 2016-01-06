@@ -33,7 +33,10 @@ describe('routes/versions', function() {
     this.virtualApp = {
       appId: shortid.generate(),
       name: 'cool-app',
-      url: 'http://test.apphost.com'
+      url: 'http://cool-app.apphost.com',
+      urls: {
+        production: 'http://cool-app.apphost.com'
+      }
     };
 
     this.server.use(function(req, res, next) {
@@ -225,7 +228,7 @@ describe('routes/versions', function() {
             {
               envName: 'production',
               rule: '*',
-              url: 'https://' + self.virtualApp.name + '.apphost.com'
+              url: 'http://' + self.virtualApp.name + '.apphost.com'
             }
           ]);
         })
