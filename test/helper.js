@@ -20,7 +20,7 @@ module.exports.beforeEach = function() {
       console.log(err.stack);
       res.end(err.stack);
     } else {
-      res.end();
+      res.json(Error.toJson(err));
     }
   });
 };
@@ -31,6 +31,6 @@ module.exports.errorHandler = function(err, req, res, next) {
     console.error(Error.toJson(err));
     res.end(err.stack);
   } else {
-    res.json(err);
+    res.json(Error.toJson(err));
   }
 };

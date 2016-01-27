@@ -355,4 +355,62 @@ describe('routes/domains', function() {
         .end(done);
     });
   });
+
+  describe('GET /check', function() {
+    it('domain is available if not exists in database', function(done) {
+      this.timeout(5000);
+
+      this.database.getDomain = sinon.spy(function(name, callback) {
+        callback(null, null);
+      });
+
+      var domainName = 'www.github.com';
+      supertest(this.server)
+        .get('/check')
+        .query({domain: domainName})
+        .expect(200)
+        .expect(function(res) {
+          assert.isTrue(self.database.getDomain.calledWith(domainName));
+          assert.isTrue(res.body.available);
+          assert.equal(res.body.domainName, 'github.com');
+          assert.equal(res.body.registrantEmail, 'hostmaster@github.com');
+        })
+        .end(done);
+    });
+
+    it('domain available is false if already exists in database', function(done) {
+      this.timeout(5000);
+      this.database.getDomain = sinon.spy(function(name, callback) {
+        callback(null, {domain: name});
+      });
+
+      var domainName = 'www.github.com';
+      supertest(this.server)
+        .get('/check')
+        .query({domain: domainName})
+        .expect(200)
+        .expect(function(res) {
+          assert.isFalse(res.body.available);
+          assert.equal(res.body.domainName, 'github.com');
+          assert.equal(res.body.registrantEmail, 'hostmaster@github.com');
+        })
+        .end(done);
+    });
+
+    it('returns noWhoisRecord for missing domain', function(done) {
+      this.timeout(5000);
+      this.database.getDomain = sinon.spy(function(name, callback) {
+        callback(null, null);
+      });
+
+      supertest(this.server)
+        .get('/check')
+        .query({domain: 'www.345345afgkadjf.net'})
+        .expect(400)
+        .expect(function(res) {
+          assert.equal(res.body.code, 'noWhoisRecord');
+        })
+        .end(done);
+    });
+  });
 });
