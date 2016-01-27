@@ -343,15 +343,11 @@ describe('routes/domains', function() {
 
   describe('DELETE /', function() {
     it('deletes a domain', function(done) {
-      var appId = shortid.generate();
       var domainName = 'my.domain.com';
-
       this.database.getDomain = sinon.spy(function(domain, callback) {
         callback(null, {
-          appId: appId,
           orgId: self.organization.orgId,
-          domain: domainName,
-          zone: self.domainZoneId
+          domain: domainName
         });
       });
 
@@ -361,7 +357,6 @@ describe('routes/domains', function() {
         .expect(204)
         .expect(function() {
           assert.ok(self.database.getDomain.calledWith(domainName));
-          assert.ok(self.domains.unregister.calledWith(domainName, self.domainZoneId));
           assert.ok(self.database.deleteDomain.calledWith(self.organization.orgId, domainName));
         })
         .end(done);
