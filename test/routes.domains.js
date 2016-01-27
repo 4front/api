@@ -358,7 +358,7 @@ describe('routes/domains', function() {
 
   describe('GET /check', function() {
     it('domain is available if not exists in database', function(done) {
-      this.timeout(5000);
+      this.timeout(20000);
 
       this.database.getDomain = sinon.spy(function(name, callback) {
         callback(null, null);
@@ -379,7 +379,7 @@ describe('routes/domains', function() {
     });
 
     it('domain available is false if already exists in database', function(done) {
-      this.timeout(5000);
+      this.timeout(20000);
       this.database.getDomain = sinon.spy(function(name, callback) {
         callback(null, {domain: name});
       });
@@ -398,7 +398,7 @@ describe('routes/domains', function() {
     });
 
     it('returns noWhoisRecord for missing domain', function(done) {
-      this.timeout(5000);
+      this.timeout(20000);
       this.database.getDomain = sinon.spy(function(name, callback) {
         callback(null, null);
       });
