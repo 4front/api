@@ -47,7 +47,7 @@ describe('routes/domains', function() {
       next();
     });
 
-    this.domainZoneId = '123';
+    this.domainZoneId = shortid.generate();
 
     this.server.settings.database = this.database = {
       createDomain: sinon.spy(function(domainData, callback) {
@@ -95,72 +95,100 @@ describe('routes/domains', function() {
     });
   });
 
-  // Create new custom domain
-  describe('POST /', function() {
-    it('creates domain without certificate', function(done) {
-      var appId = shortid.generate();
-      var domainName = 'www1.domain.com';
-      var assignedZone = shortid.generate();
+  // Request a new custom domain
+  describe('POST /request', function() {
+    beforeEach(function() {
+      self = this;
 
-      this.domains.register = sinon.spy(function(domain, zone, callback) {
-        callback(null, assignedZone);
+      this.certificateId = shortid.generate();
+      // this.zoneId = sho
+      this.topLevelDomain = shortid.generate().toLowerCase() + '.com';
+
+      this.domains.requestWildcardCertificate = sinon.spy(function(topLevelDomain, callback) {
+        callback(null, self.certificateId);
       });
 
-      supertest(this.server)
-        .post('/')
-        .send({domain: domainName, appId: appId})
-        .expect(200)
-        .expect(function() {
-          assert.ok(self.domains.register.calledWith(domainName, null));
+      _.extend(this.database, {
+        createCertificate: sinon.spy(function(certData, callback) {
+          callback(null, certData);
+        }),
+        getCertificate: sinon.spy(function(certificateId, callback) {
+          callback(null, {
+            certificateId: certificateId,
+            zone: self.domainZoneId,
+            domain: '*.' + self.topLevelDomain
+          });
+        })
+      });
+    });
 
-          assert.ok(self.database.createDomain.calledWith({
-            domain: domainName,
+    it('requests domain along with new certificate', function(done) {
+      supertest(this.server)
+        .post('/request')
+        .send({domain: 'www.' + this.topLevelDomain})
+        .expect(function(res) {
+          assert.isTrue(self.domains.requestWildcardCertificate.calledWith(self.topLevelDomain));
+
+          assert.isTrue(self.database.createCertificate.calledWith({
+            certificateId: self.certificateId,
             orgId: self.organization.orgId,
-            appId: appId,
-            zone: assignedZone
+            commonName: '*.' + self.topLevelDomain,
+            name: self.topLevelDomain,
+            status: 'Pending'
+          }));
+
+          assert.isTrue(self.database.createDomain.calledWith({
+            orgId: self.organization.orgId,
+            domain: 'www.' + self.topLevelDomain,
+            zone: sinon.match(_.isUndefined),
+            certificateId: self.certificateId
           }));
         })
         .end(done);
     });
 
-    it('creates new domain with certificate', function(done) {
-      var appId = shortid.generate();
-      var domainName = 'www1.domain.com';
-      var certificate = {
-        certificateId: shortid.generate(),
-        name: '@.domain.com',
-        zone: shortid.generate()
+    it('requests domain with existing wildcard certificate', function(done) {
+      supertest(this.server)
+        .post('/request')
+        .send({domain: 'www.' + this.topLevelDomain, certificate: self.certificateId})
+        .expect(function(res) {
+          assert.isFalse(self.domains.requestWildcardCertificate.called);
+          assert.isFalse(self.database.createCertificate.called);
+          assert.isTrue(self.database.getCertificate.calledWith(self.certificateId));
+
+          assert.isTrue(self.database.createDomain.calledWith({
+            orgId: self.organization.orgId,
+            domain: 'www.' + self.topLevelDomain,
+            zone: self.domainZoneId,
+            certificateId: self.certificateId
+          }));
+        })
+        .end(done);
+    });
+
+    it('requests domain with mis-matched wildcard certificate', function(done) {
+      this.database.getCertificate = function(certificateId, callback) {
+        callback(null, {
+          certificateId: certificateId,
+          zone: self.domainZoneId,
+          domain: '*.someotherdomain.com'
+        });
       };
 
-      this.database.getCertificate = sinon.spy(function(certName, callback) {
-        callback(null, certificate);
-      });
-
       supertest(this.server)
-        .post('/')
-        .send({domain: domainName, appId: appId, certificate: certificate.name})
-        .expect(200)
-        .expect(function() {
-          assert.isTrue(self.database.getCertificate.calledWith(certificate.name));
-          assert.ok(self.domains.register.calledWith(domainName, certificate.zone));
-
-          assert.ok(self.database.createDomain.calledWith({
-            domain: domainName,
-            orgId: self.organization.orgId,
-            appId: appId,
-            zone: certificate.zone,
-            certificate: certificate.name
-          }));
+        .post('/request')
+        .send({domain: 'www.' + this.topLevelDomain, certificate: self.certificateId})
+        .expect(400)
+        .expect(function(res) {
+          assert.equal(res.body.code, 'misMatchedCertificate');
         })
         .end(done);
     });
 
-    it('domain name invalid', function(done) {
-      var orgId = shortid.generate();
-
+    it('apex domain name invalid', function(done) {
       supertest(this.server)
-        .post('/')
-        .send({domain: 'invaliddomain??', orgId: orgId})
+        .post('/request')
+        .send({domain: 'domain.com'})
         .expect(400)
         .expect(function(res) {
           assert.equal(res.body.code, 'invalidDomainName');
