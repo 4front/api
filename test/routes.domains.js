@@ -158,7 +158,7 @@ describe('routes/domains', function() {
     it('requests domain with existing wildcard certificate', function(done) {
       supertest(this.server)
         .post('/request')
-        .send({domain: 'www.' + this.topLevelDomain, certificate: self.certificateId})
+        .send({domain: 'www.' + this.topLevelDomain, certificateId: self.certificateId})
         .expect(function(res) {
           assert.isMatch(res.body, {
             orgId: self.organization.orgId,
@@ -192,7 +192,7 @@ describe('routes/domains', function() {
 
       supertest(this.server)
         .post('/request')
-        .send({domain: 'www.' + this.topLevelDomain, certificate: self.certificateId})
+        .send({domain: 'www.' + this.topLevelDomain, certificateId: self.certificateId})
         .expect(400)
         .expect(function(res) {
           assert.equal(res.body.code, 'misMatchedCertificate');
