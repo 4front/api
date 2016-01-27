@@ -4,11 +4,8 @@ var whois = require('../lib/whois');
 require('dash-assert');
 
 describe('whois', function() {
-  beforeEach(function() {
-    this.timeout(5000);
-  });
-
   it('returns record', function(done) {
+    this.timeout(5000);
     whois('github.com', function(err, record) {
       if (err) return done(err);
 
@@ -23,6 +20,7 @@ describe('whois', function() {
   });
 
   it('returns null for missing whois record', function(done) {
+    this.timeout(5000);
     whois('24kwj45345asdf.net', function(err, record) {
       if (err) return done(err);
 
