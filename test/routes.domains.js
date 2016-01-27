@@ -128,19 +128,10 @@ describe('routes/domains', function() {
         .post('/request')
         .send({domain: 'www.' + this.topLevelDomain})
         .expect(function(res) {
-          assert.isMatch(res.body.domain, {
+          assert.isMatch(res.body, {
             orgId: self.organization.orgId,
             certificate: self.certificateId,
             domain: 'www.' + self.topLevelDomain
-          });
-
-          assert.isMatch(res.body.certificate, {
-            certificateId: self.certificateId,
-            commonName: '*.' + self.topLevelDomain,
-            orgId: self.organization.orgId,
-            altNames: [self.topLevelDomain],
-            name: self.topLevelDomain,
-            status: 'Pending'
           });
 
           assert.isTrue(self.domains.requestWildcardCertificate.calledWith(self.topLevelDomain));
@@ -169,16 +160,11 @@ describe('routes/domains', function() {
         .post('/request')
         .send({domain: 'www.' + this.topLevelDomain, certificate: self.certificateId})
         .expect(function(res) {
-          assert.isMatch(res.body.domain, {
+          assert.isMatch(res.body, {
             orgId: self.organization.orgId,
             certificate: self.certificateId,
-            domain: 'www.' + self.topLevelDomain
-          });
-
-          assert.isMatch(res.body.certificate, {
-            certificateId: self.certificateId,
-            zone: self.domainZoneId,
-            commonName: '*.' + self.topLevelDomain
+            domain: 'www.' + self.topLevelDomain,
+            zone: self.domainZoneId
           });
 
           assert.isFalse(self.domains.requestWildcardCertificate.called);
