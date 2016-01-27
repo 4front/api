@@ -116,7 +116,8 @@ describe('routes/domains', function() {
           callback(null, {
             certificateId: certificateId,
             zone: self.domainZoneId,
-            domain: '*.' + self.topLevelDomain
+            commonName: '*.' + self.topLevelDomain,
+            orgId: self.organization.orgId
           });
         })
       });
@@ -127,12 +128,28 @@ describe('routes/domains', function() {
         .post('/request')
         .send({domain: 'www.' + this.topLevelDomain})
         .expect(function(res) {
+          assert.isMatch(res.body.domain, {
+            orgId: self.organization.orgId,
+            certificate: self.certificateId,
+            domain: 'www.' + self.topLevelDomain
+          });
+
+          assert.isMatch(res.body.certificate, {
+            certificateId: self.certificateId,
+            commonName: '*.' + self.topLevelDomain,
+            orgId: self.organization.orgId,
+            altNames: [self.topLevelDomain],
+            name: self.topLevelDomain,
+            status: 'Pending'
+          });
+
           assert.isTrue(self.domains.requestWildcardCertificate.calledWith(self.topLevelDomain));
 
           assert.isTrue(self.database.createCertificate.calledWith({
             certificateId: self.certificateId,
             orgId: self.organization.orgId,
             commonName: '*.' + self.topLevelDomain,
+            altNames: [self.topLevelDomain],
             name: self.topLevelDomain,
             status: 'Pending'
           }));
@@ -141,7 +158,7 @@ describe('routes/domains', function() {
             orgId: self.organization.orgId,
             domain: 'www.' + self.topLevelDomain,
             zone: sinon.match(_.isUndefined),
-            certificateId: self.certificateId
+            certificate: self.certificateId
           }));
         })
         .end(done);
@@ -152,6 +169,18 @@ describe('routes/domains', function() {
         .post('/request')
         .send({domain: 'www.' + this.topLevelDomain, certificate: self.certificateId})
         .expect(function(res) {
+          assert.isMatch(res.body.domain, {
+            orgId: self.organization.orgId,
+            certificate: self.certificateId,
+            domain: 'www.' + self.topLevelDomain
+          });
+
+          assert.isMatch(res.body.certificate, {
+            certificateId: self.certificateId,
+            zone: self.domainZoneId,
+            commonName: '*.' + self.topLevelDomain
+          });
+
           assert.isFalse(self.domains.requestWildcardCertificate.called);
           assert.isFalse(self.database.createCertificate.called);
           assert.isTrue(self.database.getCertificate.calledWith(self.certificateId));
@@ -160,7 +189,7 @@ describe('routes/domains', function() {
             orgId: self.organization.orgId,
             domain: 'www.' + self.topLevelDomain,
             zone: self.domainZoneId,
-            certificateId: self.certificateId
+            certificate: self.certificateId
           }));
         })
         .end(done);
