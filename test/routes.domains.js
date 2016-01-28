@@ -101,7 +101,6 @@ describe('routes/domains', function() {
       self = this;
 
       this.certificateId = shortid.generate();
-      // this.zoneId = sho
       this.topLevelDomain = shortid.generate().toLowerCase() + '.com';
 
       this.domains.requestWildcardCertificate = sinon.spy(function(topLevelDomain, callback) {
@@ -128,10 +127,19 @@ describe('routes/domains', function() {
         .post('/request')
         .send({domain: 'www.' + this.topLevelDomain})
         .expect(function(res) {
-          assert.isMatch(res.body, {
+          assert.isMatch(res.body.domain, {
             orgId: self.organization.orgId,
             certificate: self.certificateId,
             domain: 'www.' + self.topLevelDomain
+          });
+
+          assert.isMatch(res.body.certificate, {
+            certificateId: self.certificateId,
+            commonName: '*.' + self.topLevelDomain,
+            orgId: self.organization.orgId,
+            altNames: [self.topLevelDomain],
+            name: self.topLevelDomain,
+            status: 'Pending'
           });
 
           assert.isTrue(self.domains.requestWildcardCertificate.calledWith(self.topLevelDomain));
@@ -160,11 +168,17 @@ describe('routes/domains', function() {
         .post('/request')
         .send({domain: 'www.' + this.topLevelDomain, certificateId: self.certificateId})
         .expect(function(res) {
-          assert.isMatch(res.body, {
+          assert.isMatch(res.body.domain, {
             orgId: self.organization.orgId,
             certificate: self.certificateId,
             domain: 'www.' + self.topLevelDomain,
             zone: self.domainZoneId
+          });
+
+          assert.isMatch(res.body.certificate, {
+            certificateId: self.certificateId,
+            zone: self.domainZoneId,
+            commonName: '*.' + self.topLevelDomain
           });
 
           assert.isFalse(self.domains.requestWildcardCertificate.called);
