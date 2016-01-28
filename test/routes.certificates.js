@@ -56,9 +56,6 @@ describe('routes/certificates', function() {
     };
 
     this.server.settings.database = this.database = {
-      createCertificate: sinon.spy(function(certData, callback) {
-        callback(null, certData);
-      }),
       updateCertificate: sinon.spy(function(certData, callback) {
         callback(null, certData);
       }),
@@ -68,9 +65,6 @@ describe('routes/certificates', function() {
     };
 
     this.server.settings.domains = this.domains = {
-      uploadCertificate: sinon.spy(function(certData, callback) {
-        callback(null, _.extend({}, certData, self.uploadedCertificate));
-      }),
       deleteCertificate: sinon.spy(function(certificate, callback) {
         callback(null);
       })
@@ -155,30 +149,6 @@ describe('routes/certificates', function() {
     });
   });
 
-  // Create new certificate
-  describe('POST /', function() {
-    it('creates new certificate', function(done) {
-      var certData = {
-        privateKey: 'asdfasdg',
-        certificateBody: 'shfdghdhfg',
-        certificateChain: 'adfgsdg'
-      };
-
-      supertest(this.server)
-        .post('/')
-        .send(certData)
-        .expect(200)
-        .expect(function() {
-          assert.ok(self.domains.uploadCertificate.calledWith(certData));
-          assert.ok(self.database.createCertificate.called);
-
-          assert.ok(self.database.createCertificate.calledWith(
-            _.extend({}, self.uploadedCertificate, {orgId: self.organization.orgId})));
-        })
-        .end(done);
-    });
-  });
-
   describe('DELETE /', function() {
     it('deletes a certificate', function(done) {
       var certificate = {
@@ -202,7 +172,11 @@ describe('routes/certificates', function() {
         callback(null, certDomains);
       });
 
-      this.domains.transferDomain = sinon.spy(function(domain, currentZone, targetZone, cb) {
+      this.database.deleteDomain = sinon.spy(function(orgId, domain, callback) {
+        callback();
+      });
+
+      this.domains.unregister = sinon.spy(function(domain, zone, cb) {
         cb();
       });
 
@@ -217,8 +191,8 @@ describe('routes/certificates', function() {
         .expect(function() {
           assert.isTrue(self.database.getCertificate.calledWith(certificate.name));
           assert.isTrue(self.database.listDomains.calledWith(self.organization.orgId));
-          assert.equal(self.domains.transferDomain.callCount, 1);
-          assert.isTrue(self.domains.transferDomain.calledWith('my.domain.com', certificate.zone, null));
+          assert.equal(self.domains.unregister.callCount, 1);
+          assert.isTrue(self.domains.unregister.calledWith('my.domain.com', certificate.zone));
           assert.isTrue(self.database.deleteCertificate.calledWith(self.organization.orgId, certificate.name));
           assert.isTrue(self.domains.deleteCertificate.calledWith(certificate));
         })
