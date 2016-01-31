@@ -3,7 +3,6 @@ var express = require('express');
 var shortid = require('shortid');
 var assert = require('assert');
 var sinon = require('sinon');
-// var async = require('async');
 var _ = require('lodash');
 var bodyParser = require('body-parser');
 var debug = require('debug')('4front-api:test');
@@ -47,177 +46,167 @@ describe('routes/domains', function() {
       next();
     });
 
-    this.domainZoneId = shortid.generate();
+    this.certificateId = shortid.generate();
+    this.domainName = shortid.generate().toLowerCase() + '.com';
 
-    this.server.settings.database = this.database = {
-      createDomain: sinon.spy(function(domainData, callback) {
-        callback(null, domainData);
-      }),
-      updateDomain: sinon.spy(function(domainData, callback) {
-        callback(null, domainData);
-      }),
-      deleteDomain: sinon.spy(function(orgId, domain, callback) {
-        callback();
-      })
-    };
+    this.server.settings.database = this.database = {};
+    this.server.settings.domains = this.domains = {};
 
-    this.server.settings.domains = this.domains = {
-      register: sinon.spy(function(domainName, zone, callback) {
-        callback(null, zone);
-      }),
-      unregister: sinon.spy(function(domainName, zoneId, callback) {
-        callback(null);
-      })
-    };
-
+    this.server.use(bodyParser.json());
     this.server.use(domainsRoute());
     this.server.use(helper.errorHandler);
   });
 
   describe('GET /', function() {
-    it('lists domains for org', function(done) {
-      var domains = _.times(3, function() {
+    beforeEach(function() {
+      self = this;
+      this.domainList = _.times(3, function() {
         return {
-          domain: 'www.' + shortid.generate() + '.com'
+          domainName: shortid.generate() + '.com',
+          orgId: self.organization.orgId,
+          cdnDistributionId: shortid.generate(),
+          status: 'Deployed'
         };
       });
 
-      this.server.settings.database.listDomains = sinon.spy(function(orgId, callback) {
-        callback(null, domains);
+      _.extend(this.database, {
+        listDomains: sinon.spy(function(orgId, callback) {
+          callback(null, self.domainList);
+        }),
+        updateDomain: sinon.spy(function(domainData, callback) {
+          callback(null, domainData);
+        })
+      });
+
+      this.domains.getCdnDistributionStatus = sinon.spy(function(distributionId, callback) {
+        callback(null, 'Deployed');
+      });
+    });
+
+    it('lists domains for org', function(done) {
+      supertest(this.server)
+        .get('/')
+        .expect(200)
+        .expect(function(res) {
+          assert.equal(3, res.body.length);
+          assert.deepEqual(res.body, self.domainList);
+        })
+        .end(done);
+    });
+
+    it('lists domain updates status for InProgress domains', function(done) {
+      this.domainList[1].status = 'InProgress';
+
+      supertest(this.server).get('/')
+        .expect(200)
+        .expect(function(res) {
+          assert.equal(self.domains.getCdnDistributionStatus.callCount, 1);
+          assert.isTrue(self.domains.getCdnDistributionStatus.calledWith(self.domainList[1].cdnDistributionId));
+          assert.equal(self.database.updateDomain.callCount, 1);
+          assert.isTrue(self.database.updateDomain.calledWith({
+            domainName: self.domainList[1].domainName,
+            status: 'Deployed',
+            orgId: self.organization.orgId
+          }));
+
+          assert.equal(res.body[1].status, 'Deployed');
+        })
+        .end(done);
+    });
+
+    it('lists domains does not update domains still InProgress', function(done) {
+      self.domainList[1].status = 'InProgress';
+
+      this.domains.getCdnDistributionStatus = sinon.spy(function(name, callback) {
+        callback(null, 'InProgress');
       });
 
       supertest(this.server).get('/')
         .expect(200)
         .expect(function(res) {
-          assert.deepEqual(res.body, domains);
+          assert.equal(self.domains.getCdnDistributionStatus.callCount, 1);
+          assert.isFalse(self.database.updateDomain.called);
+          assert.equal(res.body[1].status, 'InProgress');
         })
         .end(done);
     });
   });
 
-  // Request a new custom domain
+  // Request a new domain
   describe('POST /request', function() {
     beforeEach(function() {
       self = this;
 
-      this.certificateId = shortid.generate();
-      this.topLevelDomain = shortid.generate().toLowerCase() + '.com';
+      this.database.createDomain = sinon.spy(function(domainData, callback) {
+        callback(null, domainData);
+      });
 
-      this.domains.requestWildcardCertificate = sinon.spy(function(topLevelDomain, callback) {
+      this.domains.requestWildcardCertificate = sinon.spy(function(domainName, callback) {
         callback(null, self.certificateId);
       });
+    });
 
-      _.extend(this.database, {
-        createCertificate: sinon.spy(function(certData, callback) {
-          callback(null, certData);
-        }),
-        getCertificate: sinon.spy(function(certificateId, callback) {
-          callback(null, {
-            certificateId: certificateId,
-            zone: self.domainZoneId,
-            commonName: '*.' + self.topLevelDomain,
-            orgId: self.organization.orgId
-          });
-        })
+    it('requests available domain', function(done) {
+      this.database.getDomain = sinon.spy(function(domainName, callback) {
+        callback(null, null);
       });
-    });
 
-    it('requests domain along with new certificate', function(done) {
       supertest(this.server)
         .post('/request')
-        .send({domain: 'www.' + this.topLevelDomain})
+        .send({domainName: this.domainName})
         .expect(function(res) {
-          assert.isMatch(res.body.domain, {
-            orgId: self.organization.orgId,
-            certificateId: self.certificateId,
-            domain: 'www.' + self.topLevelDomain
-          });
-
-          assert.isMatch(res.body.certificate, {
-            certificateId: self.certificateId,
-            commonName: '*.' + self.topLevelDomain,
-            orgId: self.organization.orgId,
-            altNames: [self.topLevelDomain],
-            name: self.topLevelDomain,
-            status: 'Pending'
-          });
-
-          assert.isTrue(self.domains.requestWildcardCertificate.calledWith(self.topLevelDomain));
-
-          assert.isTrue(self.database.createCertificate.calledWith({
-            certificateId: self.certificateId,
-            orgId: self.organization.orgId,
-            commonName: '*.' + self.topLevelDomain,
-            altNames: [self.topLevelDomain],
-            name: self.topLevelDomain,
-            status: 'Pending'
-          }));
+          assert.isTrue(self.database.getDomain.calledWith(self.domainName));
+          assert.isTrue(self.domains.requestWildcardCertificate.calledWith(self.domainName));
 
           assert.isTrue(self.database.createDomain.calledWith({
             orgId: self.organization.orgId,
-            domain: 'www.' + self.topLevelDomain,
-            zone: sinon.match(_.isUndefined),
-            certificateId: self.certificateId
+            domainName: self.domainName,
+            certificateId: self.certificateId,
+            status: 'Pending'
           }));
+
+          assert.isMatch(res.body, {
+            orgId: self.organization.orgId,
+            certificateId: self.certificateId,
+            domainName: self.domainName,
+            status: 'Pending'
+          });
         })
         .end(done);
     });
 
-    it('requests domain with existing wildcard certificate', function(done) {
-      supertest(this.server)
-        .post('/request')
-        .send({domain: 'www.' + this.topLevelDomain, certificateId: self.certificateId})
-        .expect(function(res) {
-          assert.isMatch(res.body.domain, {
-            orgId: self.organization.orgId,
-            certificateId: self.certificateId,
-            domain: 'www.' + self.topLevelDomain,
-            zone: self.domainZoneId
-          });
-
-          assert.isMatch(res.body.certificate, {
-            certificateId: self.certificateId,
-            zone: self.domainZoneId,
-            commonName: '*.' + self.topLevelDomain
-          });
-
-          assert.isFalse(self.domains.requestWildcardCertificate.called);
-          assert.isFalse(self.database.createCertificate.called);
-          assert.isTrue(self.database.getCertificate.calledWith(self.certificateId));
-
-          assert.isTrue(self.database.createDomain.calledWith({
-            orgId: self.organization.orgId,
-            domain: 'www.' + self.topLevelDomain,
-            zone: self.domainZoneId,
-            certificateId: self.certificateId
-          }));
-        })
-        .end(done);
-    });
-
-    it('requests domain with mis-matched wildcard certificate', function(done) {
-      this.database.getCertificate = function(certificateId, callback) {
-        callback(null, {
-          certificateId: certificateId,
-          zone: self.domainZoneId,
-          domain: '*.someotherdomain.com'
-        });
+    it('returns error if requesting unavailable domain', function(done) {
+      this.database.getDomain = function(domainName, callback) {
+        callback(null, {domainName: domainName});
       };
 
       supertest(this.server)
         .post('/request')
-        .send({domain: 'www.' + this.topLevelDomain, certificateId: self.certificateId})
+        .send({domainName: this.domainName})
         .expect(400)
         .expect(function(res) {
-          assert.equal(res.body.code, 'misMatchedCertificate');
+          assert.equal(res.body.code, 'domainNotAvailable');
+          assert.isFalse(self.domains.requestWildcardCertificate.called);
+          assert.isFalse(self.database.createDomain.called);
         })
         .end(done);
     });
 
-    it('apex domain name invalid', function(done) {
+    it('returns error for invalid tld', function(done) {
       supertest(this.server)
         .post('/request')
-        .send({domain: 'domain.com'})
+        .send({domainName: 'domain.notatld'})
+        .expect(400)
+        .expect(function(res) {
+          assert.equal(res.body.code, 'invalidDomainName');
+        })
+        .end(done);
+    });
+
+    it('returns error for subdomain', function(done) {
+      supertest(this.server)
+        .post('/request')
+        .send({domainName: 'www.domain.com'})
         .expect(400)
         .expect(function(res) {
           assert.equal(res.body.code, 'invalidDomainName');
@@ -226,23 +215,152 @@ describe('routes/domains', function() {
     });
   });
 
-  describe('DELETE /', function() {
-    it('deletes a domain', function(done) {
-      var domainName = 'my.domain.com';
-      this.database.getDomain = sinon.spy(function(domain, callback) {
+  describe('POST /confirm', function() {
+    beforeEach(function() {
+      self = this;
+      this.cdnDistribution = {
+        distributionId: shortid.generate(),
+        domainName: shortid.generate() + '.cloudfront.net',
+        status: 'InProgress'
+      };
+
+      this.database.getDomain = sinon.spy(function(domainName, callback) {
+        callback(null, {
+          domainName: domainName,
+          orgId: self.organization.orgId,
+          certificateId: self.certificateId
+        });
+      });
+
+      this.domains.createCdnDistribution = sinon.spy(function(domainName, certificateId, callback) {
+        callback(null, self.cdnDistribution);
+      });
+
+      this.database.updateDomain = sinon.spy(function(domainData, callback) {
+        callback(null, domainData);
+      });
+
+      this.domains.getCertificateStatus = sinon.spy(function(certificateId, callback) {
+        callback(null, self.certificateStatus || 'ISSUED');
+      });
+    });
+
+    it('confirm verified domain', function(done) {
+      self.certificateStatus = 'ISSUED';
+
+      supertest(this.server)
+        .post('/confirm')
+        .send({domainName: this.domainName})
+        .expect(200)
+        .expect(function(res) {
+          assert.isTrue(self.database.getDomain.calledWith(self.domainName));
+          assert.isTrue(self.domains.getCertificateStatus.calledWith(self.certificateId));
+          assert.isTrue(self.domains.createCdnDistribution.calledWith(self.domainName, self.certificateId));
+
+          var expectedDomain = {
+            domainName: self.domainName,
+            cdnDistributionId: self.cdnDistribution.distributionId,
+            dnsValue: self.cdnDistribution.domainName,
+            status: 'InProgress'
+          };
+
+          assert.isTrue(self.database.updateDomain.calledWith(expectedDomain));
+          assert.deepEqual(res.body, expectedDomain);
+        })
+        .end(done);
+    });
+
+    it('confirm domain when certificate is VALIDATION_TIMED_OUT', function(done) {
+      self.certificateStatus = 'VALIDATION_TIMED_OUT';
+
+      supertest(this.server)
+        .post('/confirm')
+        .send({domainName: this.domainName})
+        .expect(500)
+        .expect(function(res) {
+          assert.equal(res.body.code, 'validationTimedOut');
+          assert.isFalse(self.domains.createCdnDistribution.called);
+          assert.isFalse(self.database.updateDomain.called);
+        })
+        .end(done);
+    });
+
+    it('confirm domain when certificate is PENDING_VALIDATION', function(done) {
+      this.domains.getCertificateStatus = sinon.spy(function(certificateId, callback) {
+        callback(null, 'PENDING_VALIDATION');
+      });
+
+      supertest(this.server)
+        .post('/confirm')
+        .send({domainName: this.domainName})
+        .expect(500)
+        .expect(function(res) {
+          assert.equal(res.body.code, 'certNotApproved');
+          assert.isFalse(self.domains.createCdnDistribution.called);
+          assert.isFalse(self.database.updateDomain.called);
+        })
+        .end(done);
+    });
+  });
+
+  describe('PUT /', function() {
+    it('updates domain', function(done) {
+      this.database.updateDomain = sinon.spy(function(domainData, callback) {
+        callback(null, domainData);
+      });
+
+      this.database.getDomain = sinon.spy(function(domainName, callback) {
         callback(null, {
           orgId: self.organization.orgId,
-          domain: domainName
+          domainName: self.domainName,
+          dnsValue: '1234.cloudfront.net'
         });
       });
 
       supertest(this.server)
+        .put('/')
+        .send({domainName: self.domainName, subDomains: {www: '123'}})
+        .expect(200)
+        .expect(function(res) {
+          assert.isTrue(self.database.getDomain.calledWith(self.domainName));
+          assert.isTrue(self.database.updateDomain.calledWith({
+            orgId: self.organization.orgId,
+            domainName: self.domainName,
+            dnsValue: '1234.cloudfront.net',
+            subDomains: {www: '123'}
+          }));
+        })
+        .end(done);
+    });
+  });
+
+  describe('DELETE /', function() {
+    it('deletes a domain', function(done) {
+      var distributionId = shortid.generate();
+      this.database.getDomain = sinon.spy(function(domain, callback) {
+        callback(null, {
+          orgId: self.organization.orgId,
+          domainName: self.domainName,
+          cdnDistributionId: distributionId
+        });
+      });
+
+      this.database.deleteDomain = sinon.spy(function(orgId, domain, callback) {
+        callback();
+      });
+
+      this.domains.deleteCdnDistribution = sinon.spy(function(domain, callback) {
+        callback(null);
+      });
+
+      supertest(this.server)
         .delete('/')
-        .send({domain: domainName})
+        .send({domainName: self.domainName})
         .expect(204)
         .expect(function() {
-          assert.ok(self.database.getDomain.calledWith(domainName));
-          assert.ok(self.database.deleteDomain.calledWith(self.organization.orgId, domainName));
+          assert.ok(self.database.getDomain.calledWith(self.domainName));
+          assert.ok(self.database.deleteDomain.calledWith(self.organization.orgId, self.domainName));
+          assert.ok(self.domains.deleteCdnDistribution.calledWith(distributionId));
         })
         .end(done);
     });
@@ -265,16 +383,14 @@ describe('routes/domains', function() {
     });
 
     it('delete a missing domain', function(done) {
-      var domainName = 'my.domain.com';
-
       this.database.getDomain = sinon.spy(function(domain, callback) {
         callback(null, null);
       });
 
       supertest(this.server)
         .delete('/')
-        .send({domain: domainName})
-        .expect(404)
+        .send({domainName: self.domainName})
+        .expect(400)
         .end(done);
     });
   });
@@ -287,7 +403,7 @@ describe('routes/domains', function() {
         callback(null, null);
       });
 
-      var domainName = 'www.github.com';
+      var domainName = 'github.com';
       supertest(this.server)
         .get('/check')
         .query({domain: domainName})
@@ -307,7 +423,7 @@ describe('routes/domains', function() {
         callback(null, {domain: name});
       });
 
-      var domainName = 'www.github.com';
+      var domainName = 'github.com';
       supertest(this.server)
         .get('/check')
         .query({domain: domainName})
@@ -328,7 +444,7 @@ describe('routes/domains', function() {
 
       supertest(this.server)
         .get('/check')
-        .query({domain: 'www.345345afgkadjf.net'})
+        .query({domain: '345345afgkadjf.net'})
         .expect(400)
         .expect(function(res) {
           assert.equal(res.body.code, 'noWhoisRecord');
