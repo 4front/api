@@ -19,9 +19,19 @@ describe('whois', function() {
     });
   });
 
-  it('returns null for missing whois record', function(done) {
+  it('returns null for missing whois record with valid TLD', function(done) {
     this.timeout(20000);
     whois('24kwj45345asdf.net', function(err, record) {
+      if (err) return done(err);
+
+      assert.isNull(record);
+      done();
+    });
+  });
+
+  it('returns null for missing whois record with invalid TLD', function(done) {
+    this.timeout(20000);
+    whois('24kwj45345asdf.xyz', function(err, record) {
       if (err) return done(err);
 
       assert.isNull(record);
