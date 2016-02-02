@@ -370,7 +370,7 @@ describe('routes/domains', function() {
 
       this.database.getDomain = sinon.spy(function(domain, callback) {
         callback(null, {
-          orgId: shortid.generate(), // return a different appId
+          orgId: shortid.generate(), // return a different orgId
           domain: domainName
         });
       });
@@ -432,6 +432,23 @@ describe('routes/domains', function() {
           assert.isFalse(res.body.available);
           assert.equal(res.body.domainName, 'github.com');
           assert.equal(res.body.registrantEmail, 'hostmaster@github.com');
+        })
+        .end(done);
+    });
+
+    it('sets existingDomain if pending domain exists for org', function(done) {
+      this.database.getDomain = sinon.spy(function(name, callback) {
+        callback(null, {domainName: self.domainName, orgId: self.organization.orgId});
+      });
+
+      supertest(this.server)
+        .get('/check')
+        .query({domain: self.domainName})
+        .expect(200)
+        .expect(function(res) {
+          assert.isObject(res.body.existingDomain);
+          assert.equal(res.body.existingDomain.domainName, self.domainName);
+          assert.isUndefined(res.body.registrar);
         })
         .end(done);
     });
