@@ -4,8 +4,6 @@ var shortid = require('shortid');
 var assert = require('assert');
 var sinon = require('sinon');
 var _ = require('lodash');
-var fs = require('fs');
-var path = require('path');
 var bodyParser = require('body-parser');
 var debug = require('debug')('4front-api:test');
 var helper = require('./helper');
@@ -49,7 +47,7 @@ describe('routes/domains', function() {
     });
 
     this.certificateId = shortid.generate();
-    this.domainName = shortid.generate().toLowerCase() + '.com';
+    this.domainName = Date.now() + _.random(11, 99) + '.com';
 
     this.server.settings.database = this.database = {};
     this.server.settings.domains = this.domains = {};
@@ -156,6 +154,7 @@ describe('routes/domains', function() {
       supertest(this.server)
         .post('/request')
         .send({domainName: this.domainName})
+        .expect(200)
         .expect(function(res) {
           assert.isTrue(self.database.getDomain.calledWith(self.domainName));
           assert.isTrue(self.domains.requestWildcardCertificate.calledWith(self.domainName));
@@ -463,8 +462,6 @@ describe('routes/domains', function() {
     });
 
     it('returns noWhoisRecord for missing domain', function(done) {
-      self.whoisResponse = fs.readFileSync(path.join(__dirname, './fixtures/whois-missing.txt')).toString();
-
       this.database.getDomain = sinon.spy(function(name, callback) {
         callback(null, null);
       });
