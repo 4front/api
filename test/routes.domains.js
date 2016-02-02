@@ -438,7 +438,15 @@ describe('routes/domains', function() {
 
     it('sets existingDomain if pending domain exists for org', function(done) {
       this.database.getDomain = sinon.spy(function(name, callback) {
-        callback(null, {domainName: self.domainName, orgId: self.organization.orgId});
+        callback(null, {
+          domainName: self.domainName,
+          orgId: self.organization.orgId,
+          certificateId: self.certificateId
+        });
+      });
+
+      this.domains.getCertificateStatus = sinon.spy(function(certificateId, callback) {
+        callback(null, 'PENDING_VALIDATION');
       });
 
       supertest(this.server)
@@ -448,6 +456,8 @@ describe('routes/domains', function() {
         .expect(function(res) {
           assert.isObject(res.body.existingDomain);
           assert.equal(res.body.existingDomain.domainName, self.domainName);
+          assert.isTrue(self.domains.getCertificateStatus.calledWith(self.certificateId));
+          assert.equal(res.body.validationError, 'certNotApproved');
           assert.isUndefined(res.body.registrar);
         })
         .end(done);
