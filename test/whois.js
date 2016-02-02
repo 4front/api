@@ -4,8 +4,25 @@ var whois = require('../lib/whois');
 require('dash-assert');
 
 describe('whois', function() {
+  it('returns null for missing whois record with valid TLD', function(done) {
+    whois('missing-24kwj45345asdf.net', function(err, record) {
+      if (err) return done(err);
+
+      assert.isNull(record);
+      done();
+    });
+  });
+
+  it('returns null for missing whois record with invalid TLD', function(done) {
+    whois('notfound-24kwj45345asdf.xyz', function(err, record) {
+      if (err) return done(err);
+
+      assert.isNull(record);
+      done();
+    });
+  });
+
   it('returns record', function(done) {
-    this.timeout(20000);
     whois('github.com', function(err, record) {
       if (err) return done(err);
 
@@ -15,26 +32,6 @@ describe('whois', function() {
       assert.equal(record.techEmail, 'hostmaster@github.com');
       assert.equal(record.registrantCountry, 'US');
 
-      done();
-    });
-  });
-
-  it('returns null for missing whois record with valid TLD', function(done) {
-    this.timeout(20000);
-    whois('24kwj45345asdf.net', function(err, record) {
-      if (err) return done(err);
-
-      assert.isNull(record);
-      done();
-    });
-  });
-
-  it('returns null for missing whois record with invalid TLD', function(done) {
-    this.timeout(20000);
-    whois('24kwj45345asdf.xyz', function(err, record) {
-      if (err) return done(err);
-
-      assert.isNull(record);
       done();
     });
   });

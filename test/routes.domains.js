@@ -4,10 +4,12 @@ var shortid = require('shortid');
 var assert = require('assert');
 var sinon = require('sinon');
 var _ = require('lodash');
+var fs = require('fs');
+var path = require('path');
 var bodyParser = require('body-parser');
 var debug = require('debug')('4front-api:test');
-var domainsRoute = require('../lib/routes/domains');
 var helper = require('./helper');
+var domainsRoute = require('../lib/routes/domains');
 
 require('dash-assert');
 
@@ -397,8 +399,6 @@ describe('routes/domains', function() {
 
   describe('GET /check', function() {
     it('domain is available if not exists in database', function(done) {
-      this.timeout(20000);
-
       this.database.getDomain = sinon.spy(function(name, callback) {
         callback(null, null);
       });
@@ -418,7 +418,6 @@ describe('routes/domains', function() {
     });
 
     it('domain available is false if already exists in database', function(done) {
-      this.timeout(20000);
       this.database.getDomain = sinon.spy(function(name, callback) {
         callback(null, {domain: name});
       });
@@ -464,14 +463,15 @@ describe('routes/domains', function() {
     });
 
     it('returns noWhoisRecord for missing domain', function(done) {
-      this.timeout(20000);
+      self.whoisResponse = fs.readFileSync(path.join(__dirname, './fixtures/whois-missing.txt')).toString();
+
       this.database.getDomain = sinon.spy(function(name, callback) {
         callback(null, null);
       });
 
       supertest(this.server)
         .get('/check')
-        .query({domain: '345345afgkadjf.net'})
+        .query({domain: 'missing-345345afgkadjf.net'})
         .expect(400)
         .expect(function(res) {
           assert.equal(res.body.code, 'noWhoisRecord');
