@@ -352,10 +352,6 @@ describe('routes/domains', function() {
         callback();
       });
 
-      this.domains.deleteCertificate = sinon.spy(function(certificateId, callback) {
-        callback();
-      });
-
       this.domains.deleteCdnDistribution = sinon.spy(function(domain, callback) {
         callback(null);
       });
@@ -368,7 +364,6 @@ describe('routes/domains', function() {
           assert.isTrue(self.database.getDomain.calledWith(self.domainName));
           assert.isTrue(self.database.deleteDomain.calledWith(self.organization.orgId, self.domainName));
           assert.isTrue(self.domains.deleteCdnDistribution.calledWith(distributionId));
-          assert.isTrue(self.domains.deleteCertificate.calledWith(self.certificateId));
         })
         .end(done);
     });
