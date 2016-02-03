@@ -259,6 +259,7 @@ describe('routes/domains', function() {
           assert.isTrue(self.domains.createCdnDistribution.calledWith(self.domainName, self.certificateId));
 
           var expectedDomain = {
+            orgId: self.organization.orgId,
             domainName: self.domainName,
             cdnDistributionId: self.cdnDistribution.distributionId,
             dnsValue: self.cdnDistribution.domainName,
