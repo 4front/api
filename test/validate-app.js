@@ -40,7 +40,7 @@ describe('validateApp', function() {
     this.server.use(bodyParser.json());
 
     this.server.post('/:appId?', validateApp(), function(req, res, next) {
-      res.json(req.ext);
+      res.json(req.body);
     });
 
     this.server.use(helper.errorHandler);
@@ -136,108 +136,111 @@ describe('validateApp', function() {
       .expect(200, done);
   });
 
-  it('returns 400 when domainName specified but no subDomain', function(done) {
-    this.appData.domainName = 'xyz.net';
-    supertest(this.server)
-      .post('/')
-      .send(this.appData)
-      .expect(400)
-      .expect(function(res) {
-        assert.equal(res.body.code, 'missingSubDomain');
-      })
-      .end(done);
-  });
+  describe('domainName', function() {
+    beforeEach(function() {
+      self = this;
 
-  it('returns 400 when domainName missing from domains table', function(done) {
-    _.extend(this.appData, {
-      domainName: shortid.generate() + '.com',
-      subDomain: 'www'
+      _.extend(this.appData, {
+        domainName: shortid.generate() + '.com',
+        subDomain: 'www'
+      });
+
+      this.existingDomain = {domainName: this.appData.domainName, orgId: this.orgId};
+
+      this.database.getDomain = sinon.spy(function(domainName, callback) {
+        callback(null, self.existingDomain);
+      });
+
+      this.database.getAppIdByDomainName = sinon.spy(function(domainName, subDomain, callback) {
+        callback(null, self.appData.appId);
+      });
     });
 
-    this.database.getDomain = sinon.spy(function(domainName, callback) {
-      callback(null, null);
+    it('uses @ subDomain when not specified', function(done) {
+      this.appData.subDomain = null;
+
+      supertest(this.server)
+        .post('/')
+        .send(this.appData)
+        .expect(200)
+        .expect(function(res) {
+          assert.equal(res.body.subDomain, '@');
+        })
+        .end(done);
     });
 
-    supertest(this.server)
-      .post('/')
-      .send(this.appData)
-      .expect(400)
-      .expect(function(res) {
-        assert.equal(res.body.code, 'domainNameNotRegistered');
-        assert.isTrue(self.database.getDomain.calledWith(self.appData.domainName));
-      })
-      .end(done);
-  });
+    it('returns 400 when domainName missing from domains table', function(done) {
+      self.existingDomain = null;
 
-  it('returns 400 when domain does not belong to organization', function(done) {
-    _.extend(this.appData, {
-      domainName: shortid.generate() + '.com',
-      subDomain: 'www'
+      supertest(this.server)
+        .post('/')
+        .send(this.appData)
+        .expect(400)
+        .expect(function(res) {
+          assert.equal(res.body.code, 'domainNameNotRegistered');
+          assert.isTrue(self.database.getDomain.calledWith(self.appData.domainName));
+        })
+        .end(done);
     });
 
-    this.database.getDomain = sinon.spy(function(domainName, callback) {
-      callback(null, {domainName: domainName, orgId: shortid.generate()});
+    it('returns 400 when domain does not belong to organization', function(done) {
+      self.existingDomain.orgId = shortid.generate();
+
+      supertest(this.server)
+        .post('/')
+        .send(this.appData)
+        .expect(400)
+        .expect(function(res) {
+          assert.equal(res.body.code, 'domainNameForbidden');
+          assert.isTrue(self.database.getDomain.calledWith(self.appData.domainName));
+        })
+        .end(done);
     });
 
-    supertest(this.server)
-      .post('/')
-      .send(this.appData)
-      .expect(400)
-      .expect(function(res) {
-        assert.equal(res.body.code, 'domainNameForbidden');
-        assert.isTrue(self.database.getDomain.calledWith(self.appData.domainName));
-      })
-      .end(done);
-  });
+    it('returns 400 if subDomain not available', function(done) {
+      this.database.getAppIdByDomainName = sinon.spy(function(domainName, subDomain, callback) {
+        callback(null, shortid.generate());
+      });
 
-  it('returns 400 if subDomain not available', function(done) {
-    _.extend(this.appData, {
-      domainName: shortid.generate() + '.com',
-      subDomain: 'www'
+      supertest(this.server)
+        .post('/')
+        .send(this.appData)
+        .expect(400)
+        .expect(function(res) {
+          assert.equal(res.body.code, 'subDomainNotAvailable');
+          assert.isTrue(self.database.getAppIdByDomainName.calledWith(
+            self.appData.domainName, self.appData.subDomain));
+        })
+        .end(done);
     });
 
-    this.database.getDomain = sinon.spy(function(domainName, callback) {
-      callback(null, {domainName: domainName, orgId: self.orgId});
+    it('returns 400 when apex domain not available', function(done) {
+      this.appData.subDomain = null;
+      this.database.getAppIdByDomainName = sinon.spy(function(domainName, subDomain, callback) {
+        callback(null, shortid.generate());
+      });
+
+      supertest(this.server)
+        .post('/')
+        .send(this.appData)
+        .expect(400)
+        .expect(function(res) {
+          assert.equal(res.body.code, 'apexDomainNotAvailable');
+        })
+        .end(done);
     });
 
-    this.database.getAppIdByDomainName = sinon.spy(function(domainName, subDomain, callback) {
-      callback(null, shortid.generate());
+    it('does not return error if domainName/subDomain valid', function(done) {
+      var appId = shortid.generate();
+
+      supertest(this.server)
+        .post('/' + appId)
+        .send(this.appData)
+        .expect(200)
+        .expect(function(res) {
+          assert.isTrue(self.database.getAppIdByDomainName.calledWith(self.appData.domainName));
+        })
+        .end(done);
     });
-
-    supertest(this.server)
-      .post('/')
-      .send(this.appData)
-      .expect(400)
-      .expect(function(res) {
-        assert.equal(res.body.code, 'subDomainNotAvailable');
-        assert.isTrue(self.database.getAppIdByDomainName.calledWith(
-          self.appData.domainName, self.appData.subDomain));
-      })
-      .end(done);
-  });
-
-  it('does not return error if domainName/subDomain valid', function(done) {
-    var appId = shortid.generate();
-    _.extend(this.appData, {
-      domainName: shortid.generate() + '.com',
-      subDomain: 'www'
-    });
-
-    this.database.getDomain = sinon.spy(function(domainName, callback) {
-      callback(null, {domainName: domainName, orgId: self.orgId});
-    });
-
-    this.database.getAppIdByDomainName = sinon.spy(function(domainName, subDomain, callback) {
-      callback(null, self.appData.appId);
-    });
-
-    supertest(this.server)
-      .post('/' + appId)
-      .send(this.appData)
-      .expect(200)
-      .expect(function(res) {
-        assert.isTrue(self.database.getAppIdByDomainName.calledWith(self.appData.domainName));
-      })
-      .end(done);
   });
 });
