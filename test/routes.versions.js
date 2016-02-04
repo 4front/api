@@ -177,7 +177,7 @@ describe('routes/versions', function() {
           version.created = new Date(Date.now() - 10 * 60 * 1000).toUTCString();
         } else {
           version.status = 'completed';
-          version.created = new Date().toUTCString();
+          version.created = new Date(Date.now() + i * 10).toUTCString();
         }
         return version;
       });
@@ -212,7 +212,7 @@ describe('routes/versions', function() {
         .expect(200)
         .expect(function(res) {
           assert.equal(3, res.body.length);
-          assert.deepEqual(_.map(res.body, 'username'), ['user3', 'user2', 'user1']);
+          assert.deepEqual(_.map(res.body, 'versionNum'), ['3', '2', '1']);
           assert.isTrue(self.database.listVersions.calledWith(self.virtualApp.appId));
           assert.noDifferences(self.database.getUserInfo.args[0][0], _.map(dbVersions, 'userId'));
 
