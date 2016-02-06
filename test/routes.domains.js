@@ -399,6 +399,12 @@ describe('routes/domains', function() {
   });
 
   describe('GET /check', function() {
+    beforeEach(function() {
+      this.domains.legacyDomainRegistered = function(domainName, callback) {
+        callback(null, false);
+      };
+    });
+
     it('domain is available if not exists in database', function(done) {
       this.database.getDomain = sinon.spy(function(name, callback) {
         callback(null, null);
