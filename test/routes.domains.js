@@ -484,4 +484,32 @@ describe('routes/domains', function() {
         .end(done);
     });
   });
+
+  describe('POST /resend-validation', function() {
+    it('resends validation', function(done) {
+      this.domains.resendValidationEmail = sinon.spy(function(domainName, certificateId, callback) {
+        callback();
+      });
+
+      var domainName = shortid.generate() + '.net';
+      var certificateId = shortid.generate();
+
+      this.database.getDomain = sinon.spy(function(name, callback) {
+        callback(null, {
+          domainName: name,
+          certificateId: certificateId,
+          orgId: self.organization.orgId
+        });
+      });
+
+      supertest(this.server)
+        .post('/resend-validation')
+        .send({domainName: domainName, certificateId: certificateId})
+        .expect(204)
+        .expect(function(res) {
+          assert.isTrue(self.domains.resendValidationEmail.calledWith(domainName, certificateId));
+        })
+        .end(done);
+    });
+  });
 });
