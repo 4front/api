@@ -339,17 +339,28 @@ describe('routes/domains', function() {
   describe('DELETE /', function() {
     it('deletes a domain', function(done) {
       var distributionId = shortid.generate();
-      this.database.getDomain = sinon.spy(function(domain, callback) {
-        callback(null, {
-          orgId: self.organization.orgId,
-          domainName: self.domainName,
-          certificateId: self.certificateId,
-          cdnDistributionId: distributionId
-        });
-      });
+      var appIds = ['1', '2'];
 
-      this.database.deleteDomain = sinon.spy(function(orgId, domain, callback) {
-        callback();
+      _.extend(this.database, {
+        getDomain: sinon.spy(function(domain, callback) {
+          callback(null, {
+            orgId: self.organization.orgId,
+            domainName: self.domainName,
+            certificateId: self.certificateId,
+            cdnDistributionId: distributionId
+          });
+        }),
+        getAppsByDomain: sinon.spy(function(domain, callback) {
+          callback(null, _.map(appIds, function(appId) {
+            return {appId: appId, subDomain: appId};
+          }));
+        }),
+        updateApplication: sinon.spy(function(appData, callback) {
+          callback();
+        }),
+        deleteDomain: sinon.spy(function(orgId, domain, callback) {
+          callback();
+        })
       });
 
       this.domains.deleteCdnDistribution = sinon.spy(function(domain, callback) {
@@ -362,6 +373,11 @@ describe('routes/domains', function() {
         .expect(204)
         .expect(function() {
           assert.isTrue(self.database.getDomain.calledWith(self.domainName));
+          assert.isTrue(self.database.getAppsByDomain.calledWith(self.domainName));
+          assert.equal(appIds.length, self.database.updateApplication.callCount);
+          appIds.forEach(function(appId) {
+            assert.isTrue(self.database.updateApplication.calledWith({appId: appId, domainName: null, subDomain: null}));
+          });
           assert.isTrue(self.database.deleteDomain.calledWith(self.organization.orgId, self.domainName));
           assert.isTrue(self.domains.deleteCdnDistribution.calledWith(distributionId));
         })
