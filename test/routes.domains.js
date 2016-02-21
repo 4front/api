@@ -130,6 +130,22 @@ describe('routes/domains', function() {
         })
         .end(done);
     });
+
+    it('lists domains gets updated certificate status when status is Pending', function(done) {
+      self.domainList[1].status = 'Pending';
+
+      this.domains.getCertificateStatus = sinon.spy(function(name, callback) {
+        callback(null, 'PENDING_VALIDATION');
+      });
+
+      supertest(this.server).get('/')
+        .expect(200)
+        .expect(function(res) {
+          assert.equal(self.domains.getCertificateStatus.callCount, 1);
+          assert.equal(res.body[1].certificateStatus, 'PENDING_VALIDATION');
+        })
+        .end(done);
+    });
   });
 
   // Request a new domain
