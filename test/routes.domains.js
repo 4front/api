@@ -294,7 +294,7 @@ describe('routes/domains', function() {
       supertest(this.server)
         .post('/validate')
         .send({domainName: this.domainName})
-        .expect(500)
+        .expect(400)
         .expect(function(res) {
           assert.equal(res.body.code, 'validationTimedOut');
           assert.isFalse(self.domains.createCdnDistribution.called);
@@ -311,7 +311,7 @@ describe('routes/domains', function() {
       supertest(this.server)
         .post('/validate')
         .send({domainName: this.domainName})
-        .expect(500)
+        .expect(400)
         .expect(function(res) {
           assert.equal(res.body.code, 'certNotApproved');
           assert.isFalse(self.domains.createCdnDistribution.called);
