@@ -232,7 +232,7 @@ describe('routes/domains', function() {
     });
   });
 
-  describe('POST /confirm', function() {
+  describe('POST /validate', function() {
     beforeEach(function() {
       self = this;
       this.cdnDistribution = {
@@ -266,7 +266,7 @@ describe('routes/domains', function() {
       self.certificateStatus = 'ISSUED';
 
       supertest(this.server)
-        .post('/confirm')
+        .post('/validate')
         .send({domainName: this.domainName})
         .expect(200)
         .expect(function(res) {
@@ -292,7 +292,7 @@ describe('routes/domains', function() {
       self.certificateStatus = 'VALIDATION_TIMED_OUT';
 
       supertest(this.server)
-        .post('/confirm')
+        .post('/validate')
         .send({domainName: this.domainName})
         .expect(500)
         .expect(function(res) {
@@ -309,7 +309,7 @@ describe('routes/domains', function() {
       });
 
       supertest(this.server)
-        .post('/confirm')
+        .post('/validate')
         .send({domainName: this.domainName})
         .expect(500)
         .expect(function(res) {
