@@ -450,8 +450,6 @@ describe('routes/domains', function() {
         .expect(function(res) {
           assert.isTrue(self.database.getDomain.calledWith(domainName));
           assert.isTrue(res.body.available);
-          assert.equal(res.body.domainName, 'github.com');
-          assert.equal(res.body.registrantEmail, 'hostmaster@github.com');
         })
         .end(done);
     });
@@ -468,8 +466,6 @@ describe('routes/domains', function() {
         .expect(200)
         .expect(function(res) {
           assert.isFalse(res.body.available);
-          assert.equal(res.body.domainName, 'github.com');
-          assert.equal(res.body.registrantEmail, 'hostmaster@github.com');
         })
         .end(done);
     });
@@ -497,21 +493,6 @@ describe('routes/domains', function() {
           assert.isTrue(self.domains.getCertificateStatus.calledWith(self.certificateId));
           assert.equal(res.body.validationError, 'certNotApproved');
           assert.isUndefined(res.body.registrar);
-        })
-        .end(done);
-    });
-
-    it('returns noWhoisRecord for missing domain', function(done) {
-      this.database.getDomain = sinon.spy(function(name, callback) {
-        callback(null, null);
-      });
-
-      supertest(this.server)
-        .get('/check')
-        .query({domain: 'missing-345345afgkadjf.net'})
-        .expect(400)
-        .expect(function(res) {
-          assert.equal(res.body.code, 'noWhoisRecord');
         })
         .end(done);
     });
