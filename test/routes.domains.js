@@ -350,6 +350,17 @@ describe('routes/domains', function() {
         })
         .end(done);
     });
+
+    it('returns error for invalid catchAllDomain', function(done) {
+      supertest(this.server)
+        .put('/')
+        .send({domainName: self.domainName, catchAllRedirect: 'not_a_domain'})
+        .expect(400)
+        .expect(function(res) {
+          assert.equal(res.body.code, 'invalidCatchAllRedirect');
+        })
+        .end(done);
+    });
   });
 
   describe('DELETE /', function() {
