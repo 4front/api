@@ -337,7 +337,7 @@ describe('routes/domains', function() {
 
       supertest(this.server)
         .put('/')
-        .send({domainName: self.domainName, subDomains: {www: '123'}})
+        .send({domainName: self.domainName, subDomains: {www: '123'}, catchAllRedirect: 'https://4front.io'})
         .expect(200)
         .expect(function(res) {
           assert.isTrue(self.database.getDomain.calledWith(self.domainName));
@@ -345,7 +345,8 @@ describe('routes/domains', function() {
             orgId: self.organization.orgId,
             domainName: self.domainName,
             dnsValue: '1234.cloudfront.net',
-            subDomains: {www: '123'}
+            subDomains: {www: '123'},
+            catchAllRedirect: 'https://4front.io'
           }));
         })
         .end(done);
