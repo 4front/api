@@ -70,9 +70,7 @@ describe('routes/versions', function() {
       },
       buildEnvUrl: function(virtualApp) {
         return 'https://' + virtualApp.name + '.apphost.com';
-      },
-      flushApp: sinon.spy(function() {
-      })
+      }
     };
 
     this.server.settings.deployer = this.deployer = {

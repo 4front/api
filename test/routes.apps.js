@@ -85,9 +85,7 @@ describe('routes/apps', function() {
         }
 
         callback(null, _.find(self.appRegistry, {name: name}));
-      },
-      flushApp: sinon.spy(function() {
-      })
+      }
     };
 
     this.server.settings.deployer = this.deployer = {
@@ -184,7 +182,6 @@ describe('routes/apps', function() {
       .expect(function() {
         assert.ok(self.database.deleteApplication.calledWith(appData.appId));
         assert.ok(self.deployer.versions.deleteAll.called);
-        assert.ok(self.virtualAppRegistry.flushApp.called);
       })
       .end(done);
   });
