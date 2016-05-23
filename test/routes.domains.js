@@ -101,7 +101,8 @@ describe('routes/domains', function() {
         .expect(200)
         .expect(function(res) {
           assert.equal(self.domains.getCdnDistributionStatus.callCount, 1);
-          assert.isTrue(self.domains.getCdnDistributionStatus.calledWith(self.domainList[1].cdnDistributionId));
+          assert.isTrue(self.domains.getCdnDistributionStatus.calledWith(
+            self.domainList[1].cdnDistributionId));
           assert.equal(self.database.updateDomain.callCount, 1);
           assert.isTrue(self.database.updateDomain.calledWith({
             domainName: self.domainList[1].domainName,
@@ -272,7 +273,8 @@ describe('routes/domains', function() {
         .expect(function(res) {
           assert.isTrue(self.database.getDomain.calledWith(self.domainName));
           assert.isTrue(self.domains.getCertificateStatus.calledWith(self.certificateId));
-          assert.isTrue(self.domains.createCdnDistribution.calledWith(self.domainName, self.certificateId));
+          assert.isTrue(self.domains.createCdnDistribution.calledWith(
+            self.domainName, self.certificateId));
 
           var expectedDomain = {
             orgId: self.organization.orgId,
@@ -404,9 +406,11 @@ describe('routes/domains', function() {
           assert.isTrue(self.database.getAppsByDomain.calledWith(self.domainName));
           assert.equal(appIds.length, self.database.updateApplication.callCount);
           appIds.forEach(function(appId) {
-            assert.isTrue(self.database.updateApplication.calledWith({appId: appId, domainName: null, subDomain: null}));
+            assert.isTrue(self.database.updateApplication.calledWith(
+              {appId: appId, domainName: null, subDomain: null}));
           });
-          assert.isTrue(self.database.deleteDomain.calledWith(self.organization.orgId, self.domainName));
+          assert.isTrue(self.database.deleteDomain.calledWith(
+            self.organization.orgId, self.domainName));
           assert.isTrue(self.domains.deleteCdnDistribution.calledWith(distributionId));
         })
         .end(done);
