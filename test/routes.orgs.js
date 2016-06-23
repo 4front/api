@@ -115,15 +115,15 @@ describe('routes/orgs', function() {
   describe('GET /:orgId/apps', function() {
     it('retrieves org apps', function(done) {
       var appIds = ['1', '2', '3'];
-      this.database.listOrgAppIds = sinon.spy(function(orgId, callback) {
-        callback(null, appIds);
+      this.database.listOrgApplications = sinon.spy(function(orgId, callback) {
+        callback(null, _.map(appIds, function(appId) {
+          return {appId: appId, orgId: self.organization.orgId};
+        }));
       });
 
       this.server.settings.virtualAppRegistry = {
-        batchGetById: sinon.spy(function(_appIds, callback) {
-          callback(null, _.map(appIds, function(appId) {
-            return {appId: appId};
-          }));
+        fixUpApp: sinon.spy(function(app) {
+          return app;
         })
       };
 
@@ -131,6 +131,7 @@ describe('routes/orgs', function() {
         .get('/' + this.organization.orgId + '/apps')
         .expect(200)
         .expect(function(res) {
+          assert.equal(self.server.settings.virtualAppRegistry.fixUpApp.callCount, 3);
           assert.noDifferences(_.map(res.body, 'appId'), appIds);
         })
         .end(done);
@@ -140,8 +141,8 @@ describe('routes/orgs', function() {
   describe('GET /:orgId/apps/count', function() {
     it('retrieves org apps', function(done) {
       var appIds = ['1', '2', '3'];
-      this.database.listOrgAppIds = sinon.spy(function(orgId, callback) {
-        callback(null, appIds);
+      this.database.countOrgApplications = sinon.spy(function(orgId, callback) {
+        callback(null, appIds.length);
       });
 
       supertest(this.server)
